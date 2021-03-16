@@ -4,6 +4,7 @@ Convert your Azure resources to an Excel parameter sheet automatically.
 
 ## Sample
 
+[azReport_sample.xlsx](https://github.com/kongou-ae/Export-AzResources/raw/master/example/azReport_sample.xlsx)
 
 ## Usage
 
