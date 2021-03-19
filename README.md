@@ -29,6 +29,7 @@ Install-Module Az -scope CurrentUser
 - Network interface
 - Network Security Group
 - Public Ip Address
+- Storage Account
 
 ## Lisence
 
