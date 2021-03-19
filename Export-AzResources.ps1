@@ -11,19 +11,28 @@ $disks = Get-AzDisk
 $nics = Get-AzNetworkInterface
 $nsgs = Get-AzNetworkSecurityGroup
 $pips = Get-AzPublicIpAddress
+$storageAccounts = Get-AzStorageAccount
 
 #-------------------------------------------------------------------------------------------
 # Initialize
 #-------------------------------------------------------------------------------------------
 # Load excel files.
 
-
+$date = Get-Date -Format yyyyMMdd-hhmm
+$fileName = "azReport-${date}.xlsx"
 $templateFileName = "$PSScriptRoot/azReportTemplate.xlsx"
-$fileName = "$PSScriptRoot/azReport.xlsx"
+$temptemplateFileName = "$PSScriptRoot/azReportTemplateTemp.xlsx"
+$fileName = "$PSScriptRoot/$fileName"
 
 if( Test-Path $fileName ){
     Remove-Item $fileName
 }
+
+if( Test-Path $temptemplateFileName ){
+    Remove-Item $temptemplateFileName   
+}
+
+Copy-Item $templateFileName $temptemplateFileName
 
 # Creat default sheets
 Export-Excel $fileName -WorksheetName "README" 
@@ -31,7 +40,7 @@ Export-Excel $fileName -WorksheetName "SUMMARY"
 
 # Load default sheets
 $excelPackage = Open-ExcelPackage -Path $fileName
-$templatePackage = Open-ExcelPackage -Path $templateFileName
+$templatePackage = Open-ExcelPackage -Path $temptemplateFileName
 
 #-------------------------------------------------------------------------------------------
 # Create README
@@ -39,7 +48,7 @@ $templatePackage = Open-ExcelPackage -Path $templateFileName
 $readmeMsg = @(
     "",
     "Thanks for using Export-AzResources.",
-    "If you find any issue or any request, could you open issue to https://github.com/kongou-ae/Export-AzResources, please?",
+    "If you find any issue or any request, please open an issue to https://github.com/kongou-ae/Export-AzResources.",
     "",
     "@kongou_ae"
 )
@@ -52,551 +61,715 @@ for($i=1;$i -le $readmeMsg.Count; $i++){
 #-------------------------------------------------------------------------------------------
 # Create SUMMARY
 #-------------------------------------------------------------------------------------------
-$summaryWs = $excelPackage.Workbook.Worksheets["SUMMARY"]
-Set-ExcelRange -Worksheet $summaryWs -Range "A1" -Value "Export-AzResources" -FontSize 16 -Bold
 
-# create the summary of VirtualMachine
-Set-ExcelRange -Worksheet $summaryWs -Range "A3" -Value "VirtualMachines" -FontSize 12 -Bold
+function New-Summary {
 
-$row = 4
-Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,1].Address -Value "`#" -Width 5 -BackgroundColor $bgc -BorderAround Thin
-Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,2].Address -Value "Name" -Width 40 -BackgroundColor $bgc -BorderAround Thin
-Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,3].Address -Value "ResourceGroupName" -Width 20 -BackgroundColor $bgc -BorderAround Thin
-Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,4].Address -Value "Location" -Width 20 -BackgroundColor $bgc -BorderAround Thin
-Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,5].Address -Value "VmSize" -Width 20 -BackgroundColor $bgc -BorderAround Thin
-Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,6].Address -Value "Detail" -Width 20 -BackgroundColor $bgc -BorderAround Thin
-$row ++
+    $summaryWs = $excelPackage.Workbook.Worksheets["SUMMARY"]
+    Set-ExcelRange -Worksheet $summaryWs -Range "A1" -Value "Export-AzResources" -FontSize 16 -Bold
 
-for($i=0;$i -lt $vms.Count; $i++){
-    $vm = $vms[$i]
-    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,1].Address -Value ($row -4) -BorderAround Thin
-    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,2].Address -Value $vm.Name -BorderAround Thin
-    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,3].Address -Value $vm.ResourceGroupName -BorderAround Thin
-    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,4].Address -Value $vm.Location -BorderAround Thin
-    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,5].Address -Value $vm.HardwareProfile.VmSize -BorderAround Thin
+    # create the summary of VirtualMachine
+    Set-ExcelRange -Worksheet $summaryWs -Range "A3" -Value "VirtualMachines" -FontSize 12 -Bold
 
-    $formular = '=HYPERLINK("#VirtualMachines!vm_' + ($($vm.Name) -replace "-","_") + '","Link")'
-    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,6].Address -Formula $formular -BorderAround Thin
-    $row++
-}
+    $row = 4
+    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,1].Address -Value "`#" -Width 5 -BackgroundColor $bgc -BorderAround Thin
+    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,2].Address -Value "Name" -Width 40 -BackgroundColor $bgc -BorderAround Thin
+    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,3].Address -Value "ResourceGroupName" -Width 20 -BackgroundColor $bgc -BorderAround Thin
+    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,4].Address -Value "Location" -Width 20 -BackgroundColor $bgc -BorderAround Thin
+    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,5].Address -Value "VmSize" -Width 20 -BackgroundColor $bgc -BorderAround Thin
+    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,6].Address -Value "Detail" -Width 20 -BackgroundColor $bgc -BorderAround Thin
+    $row ++
 
-$row += 1
+    for($i=0;$i -lt $vms.Count; $i++){
+        $vm = $vms[$i]
+        Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,1].Address -Value ($row -4) -BorderAround Thin
+        Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,2].Address -Value $vm.Name -BorderAround Thin
+        Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,3].Address -Value $vm.ResourceGroupName -BorderAround Thin
+        Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,4].Address -Value $vm.Location -BorderAround Thin
+        Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,5].Address -Value $vm.HardwareProfile.VmSize -BorderAround Thin
 
-# create the summary of VirtualNetwork
-Set-ExcelRange -Worksheet $summaryWs -Range "A${row}" -Value "VirtualNetwork" -FontSize 12 -Bold
-$row ++
-Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,1].Address -Value "`#" -Width 5 -BackgroundColor $bgc -BorderAround Thin
-Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,2].Address -Value "Name" -Width 40 -BackgroundColor $bgc -BorderAround Thin
-Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,3].Address -Value "ResourceGroupName" -Width 20 -BackgroundColor $bgc -BorderAround Thin
-Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,4].Address -Value "Location" -Width 20 -BackgroundColor $bgc -BorderAround Thin
-Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,5].Address -Value "AddressPrefixes" -Width 20 -BackgroundColor $bgc -BorderAround Thin
-Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,6].Address -Value "Detail" -Width 20 -BackgroundColor $bgc -BorderAround Thin
-$row ++
-
-for($i=0;$i -lt $vnets.Count; $i++){
-    $vnet = $vnets[$i]
-    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,1].Address -Value ($row -4) -BorderAround Thin
-    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,2].Address -Value $vnet.Name -BorderAround Thin
-    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,3].Address -Value $vnet.ResourceGroupName -BorderAround Thin
-    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,4].Address -Value $vnet.Location -BorderAround Thin
-    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,5].Address -Value ($vnet.AddressSpace.AddressPrefixes -join ",") -BorderAround Thin
-
-    $formular = '=HYPERLINK("#VirtualNetworks!vnet_' + ($($vnet.Name) -replace "-","_") + '","Link")'
-    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,6].Address -Formula $formular -BorderAround Thin
-    $row++
-}
-
-$row += 1
-
-# create the summary of Disk
-Set-ExcelRange -Worksheet $summaryWs -Range "A${row}" -Value "Disk" -FontSize 12 -Bold
-$row ++
-Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,1].Address -Value "`#" -Width 5 -BackgroundColor $bgc -BorderAround Thin
-Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,2].Address -Value "Name" -Width 40 -BackgroundColor $bgc -BorderAround Thin
-Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,3].Address -Value "ResourceGroupName" -Width 20 -BackgroundColor $bgc -BorderAround Thin
-Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,4].Address -Value "Location" -Width 20 -BackgroundColor $bgc -BorderAround Thin
-Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,5].Address -Value "Sku" -Width 20 -BackgroundColor $bgc -BorderAround Thin
-Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,6].Address -Value "Size" -Width 20 -BackgroundColor $bgc -BorderAround Thin
-Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,7].Address -Value "Detail" -Width 20 -BackgroundColor $bgc -BorderAround Thin
-$row ++
-
-for($i=0;$i -lt $disks.Count; $i++){
-    $disk = $disks[$i]
-    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,1].Address -Value ($row -4) -BorderAround Thin
-    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,2].Address -Value $disk.Name -BorderAround Thin
-    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,3].Address -Value $disk.ResourceGroupName -BorderAround Thin
-    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,4].Address -Value $disk.Location -BorderAround Thin
-    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,5].Address -Value $disk.Sku.Name -BorderAround Thin
-    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,6].Address -Value $disk.DiskSizeGB -BorderAround Thin
-
-    $formular = '=HYPERLINK("#disks!vnet_' + ($($disk.Name) -replace "-","_") + '","Link")'
-    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,7].Address -Formula $formular -BorderAround Thin
-    $row++
-}
-
-$row += 1
-
-# create the summary of Nic
-Set-ExcelRange -Worksheet $summaryWs -Range "A${row}" -Value "Network Interface" -FontSize 12 -Bold
-$row ++
-Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,1].Address -Value "`#" -Width 5 -BackgroundColor $bgc -BorderAround Thin
-Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,2].Address -Value "Name" -Width 40 -BackgroundColor $bgc -BorderAround Thin
-Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,3].Address -Value "ResourceGroupName" -Width 20 -BackgroundColor $bgc -BorderAround Thin
-Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,4].Address -Value "Location" -Width 20 -BackgroundColor $bgc -BorderAround Thin
-Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,5].Address -Value "PrivateIpAddress" -Width 20 -BackgroundColor $bgc -BorderAround Thin
-Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,6].Address -Value "PrivateIpAllocationMethod" -Width 20 -BackgroundColor $bgc -BorderAround Thin
-Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,7].Address -Value "Detail" -Width 20 -BackgroundColor $bgc -BorderAround Thin
-$row ++
-
-for($i=0;$i -lt $nics.Count; $i++){
-    $nic = $nics[$i]
-    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,1].Address -Value ($row -4) -BorderAround Thin
-    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,2].Address -Value $nic.Name -BorderAround Thin
-    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,3].Address -Value $nic.ResourceGroupName -BorderAround Thin
-    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,4].Address -Value $nic.Location -BorderAround Thin
-    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,5].Address -Value $nic.IpConfigurations[0].PrivateIpAddress -BorderAround Thin
-    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,6].Address -Value $nic.IpConfigurations[0].PrivateIpAllocationMethod -BorderAround Thin
-
-    $formular = '=HYPERLINK("#nics!nic_' + ($($nic.Name) -replace "-","_") + '","Link")'
-    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,7].Address -Formula $formular -BorderAround Thin
-    $row++
-}
-
-$row += 1
-
-# create the summary of Network Security Group
-Set-ExcelRange -Worksheet $summaryWs -Range "A${row}" -Value "Network Security Group" -FontSize 12 -Bold
-$row ++
-Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,1].Address -Value "`#" -Width 5 -BackgroundColor $bgc -BorderAround Thin
-Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,2].Address -Value "Name" -Width 40 -BackgroundColor $bgc -BorderAround Thin
-Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,3].Address -Value "ResourceGroupName" -Width 20 -BackgroundColor $bgc -BorderAround Thin
-Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,4].Address -Value "Location" -Width 20 -BackgroundColor $bgc -BorderAround Thin
-Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,5].Address -Value "Detail" -Width 20 -BackgroundColor $bgc -BorderAround Thin
-$row ++
-
-for($i=0;$i -lt $nsgs.Count; $i++){
-    $nsg = $nsgs[$i]
-    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,1].Address -Value ($row -4) -BorderAround Thin
-    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,2].Address -Value $nsg.Name -BorderAround Thin
-    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,3].Address -Value $nsg.ResourceGroupName -BorderAround Thin
-    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,4].Address -Value $nsg.Location -BorderAround Thin
-
-
-    $formular = '=HYPERLINK("#nsgs!nsg_' + ($($nsg.Name) -replace "-","_") + '","Link")'
-    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,5].Address -Formula $formular -BorderAround Thin
-    $row++
-}
-
-# create the summary of PublicIP Address
-Set-ExcelRange -Worksheet $summaryWs -Range "A${row}" -Value "Public Ip Address" -FontSize 12 -Bold
-$row ++
-Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,1].Address -Value "`#" -Width 5 -BackgroundColor $bgc -BorderAround Thin
-Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,2].Address -Value "Name" -Width 40 -BackgroundColor $bgc -BorderAround Thin
-Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,3].Address -Value "ResourceGroupName" -Width 20 -BackgroundColor $bgc -BorderAround Thin
-Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,4].Address -Value "Location" -Width 20 -BackgroundColor $bgc -BorderAround Thin
-Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,5].Address -Value "PublicIpAllocationMethod" -Width 20 -BackgroundColor $bgc -BorderAround Thin
-Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,6].Address -Value "IpAddress" -Width 20 -BackgroundColor $bgc -BorderAround Thin
-Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,7].Address -Value "Detail" -Width 20 -BackgroundColor $bgc -BorderAround Thin
-$row ++
-
-for($i=0;$i -lt $pips.Count; $i++){
-    $pip = $pips[$i]
-    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,1].Address -Value ($row -4) -BorderAround Thin
-    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,2].Address -Value $pip.Name -BorderAround Thin
-    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,3].Address -Value $pip.ResourceGroupName -BorderAround Thin
-    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,4].Address -Value $pip.Location -BorderAround Thin
-    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,5].Address -Value $pip.PublicIpAllocationMethod -BorderAround Thin
-    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,6].Address -Value $pip.IpAddress -BorderAround Thin
-
-    $formular = '=HYPERLINK("#pips!pip_' + ($($pip.Name) -replace "-","_") + '","Link")'
-    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,7].Address -Formula $formular -BorderAround Thin
-    $row++
-}
-
-#-------------------------------------------------------------------------------------------
-# Create VirtualMachine
-#-------------------------------------------------------------------------------------------
-if ( $vms -ne $Null ){
-    $ws = Add-Worksheet -ExcelPackage $excelPackage -WorksheetName "VirtualMachines"
-    $shortCols = @("A","B","C","D","E")
-    foreach ($shortCol in $shortCols) {
-        Set-ExcelRange -Worksheet $ws -Range "${shortCol}:${shortCol}" -Width (20/7).ToString()
-    }
-    Set-ExcelRange -Worksheet $ws -Range "F:F" -Width (20).ToString()
-    Set-ExcelRange -Worksheet $ws -Range "G:G" -Width (100).ToString()
-}
-
-$vmWinHeight = 60
-$vmLinuxHeight = 60
-$workingRow = 1 # エクスポート中のリソースのスタート行
-for($i = 0; $i -lt $vms.Count; $i++){
-    $vm = $vms[$i]
-
-    Write-Output "Exporting $($vm.Name)"
-    if ( $vm.StorageProfile.OsDisk.OsType -eq "Windows" ){
-        $templatePackage.Workbook.Worksheets["VirtualMachine_windows"].Cells["A1:G60"].Copy($ws.Cells["A${workingRow}:G$($workingRow + $vmWinHeight)"])          
+        $formular = '=HYPERLINK("#VirtualMachines!vm_' + ($($vm.Name) -replace "-","_") + '","Link")'
+        Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,6].Address -Formula $formular -BorderAround Thin
+        $row++
     }
 
-    if ( $vm.StorageProfile.OsDisk.OsType -eq "Linux" ){
-        $templatePackage.Workbook.Worksheets["VirtualMachine_linux"].Cells["A1:G60"].Copy($ws.Cells["A${workingRow}:G$($workingRow + $vmLinuxHeight)"])          
+    $row += 1
+
+    # create the summary of VirtualNetwork
+    Set-ExcelRange -Worksheet $summaryWs -Range "A${row}" -Value "VirtualNetwork" -FontSize 12 -Bold
+    $row ++
+    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,1].Address -Value "`#" -Width 5 -BackgroundColor $bgc -BorderAround Thin
+    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,2].Address -Value "Name" -Width 40 -BackgroundColor $bgc -BorderAround Thin
+    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,3].Address -Value "ResourceGroupName" -Width 20 -BackgroundColor $bgc -BorderAround Thin
+    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,4].Address -Value "Location" -Width 20 -BackgroundColor $bgc -BorderAround Thin
+    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,5].Address -Value "AddressPrefixes" -Width 20 -BackgroundColor $bgc -BorderAround Thin
+    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,6].Address -Value "Detail" -Width 20 -BackgroundColor $bgc -BorderAround Thin
+    $row ++
+
+    for($i=0;$i -lt $vnets.Count; $i++){
+        $vnet = $vnets[$i]
+        Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,1].Address -Value ($row -4) -BorderAround Thin
+        Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,2].Address -Value $vnet.Name -BorderAround Thin
+        Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,3].Address -Value $vnet.ResourceGroupName -BorderAround Thin
+        Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,4].Address -Value $vnet.Location -BorderAround Thin
+        Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,5].Address -Value ($vnet.AddressSpace.AddressPrefixes -join ",") -BorderAround Thin
+
+        $formular = '=HYPERLINK("#VirtualNetworks!vnet_' + ($($vnet.Name) -replace "-","_") + '","Link")'
+        Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,6].Address -Formula $formular -BorderAround Thin
+        $row++
     }
 
-    Set-ExcelRange -Worksheet $ws -Range "A$($workingRow)" -Value $vm.Name -Bold
-    Add-ExcelName -Range $ws.Cells["A$($workingRow)"] -RangeName "vm_$($vm.Name)" -WarningAction SilentlyContinue
-    Set-ExcelRange -Worksheet $ws -Range "G$($workingRow + 1)" -Value $vm.ResourceGroupName
-    Set-ExcelRange -Worksheet $ws -Range "G$($workingRow + 2)" -Value $vm.Name
-    Set-ExcelRange -Worksheet $ws -Range "G$($workingRow + 3)" -Value $vm.Location
-    Set-ExcelRange -Worksheet $ws -Range "G$($workingRow + 4)" -Value $vm.LicenseType
-    Set-ExcelRange -Worksheet $ws -Range "G$($workingRow + 7)" -Value $vm.DiagnosticsProfile.BootDiagnostics.Enabled
-    Set-ExcelRange -Worksheet $ws -Range "G$($workingRow + 8)" -Value $vm.DiagnosticsProfile.BootDiagnostics.StorageUri
-    Set-ExcelRange -Worksheet $ws -Range "G$($workingRow + 10)" -Value $vm.HardwareProfile.VmSize
-    # ToDo: Support multiple nics
-    Set-ExcelRange -Worksheet $ws -Range "G$($workingRow + 14)" -Value $vm.NetworkProfile.NetworkInterfaces[0].Primary
-    Set-ExcelRange -Worksheet $ws -Range "G$($workingRow + 15)" -Value $vm.NetworkProfile.NetworkInterfaces[0].id
-    Set-ExcelRange -Worksheet $ws -Range "G$($workingRow + 17)" -Value $vm.OSProfile.ComputerName
-    Set-ExcelRange -Worksheet $ws -Range "G$($workingRow + 18)" -Value $vm.OSProfile.AdminUsername
-    Set-ExcelRange -Worksheet $ws -Range "G$($workingRow + 19)" -Value $vm.OSProfile.WindowsConfiguration.ProvisionVMAgent
-    Set-ExcelRange -Worksheet $ws -Range "G$($workingRow + 22)" -Value $vm.OSProfile.WindowsConfiguration.EnableAutomaticUpdates
-    Set-ExcelRange -Worksheet $ws -Range "G$($workingRow + 23)" -Value $vm.OSProfile.WindowsConfiguration.TimeZone
-    Set-ExcelRange -Worksheet $ws -Range "G$($workingRow + 24)" -Value $vm.OSProfile.WindowsConfiguration.AdditionalUnattendContent
-    Set-ExcelRange -Worksheet $ws -Range "G$($workingRow + 26)" -Value $vm.OSProfile.WindowsConfiguration.PatchSettings.PatchMode
-    Set-ExcelRange -Worksheet $ws -Range "G$($workingRow + 27)" -Value $vm.OSProfile.WindowsConfiguration.PatchSettings.EnableHotpatching
-    Set-ExcelRange -Worksheet $ws -Range "G$($workingRow + 28)" -Value $vm.OSProfile.WindowsConfiguration.WinRM
-    Set-ExcelRange -Worksheet $ws -Range "G$($workingRow + 29)" -Value $vm.OSProfile.Secrets
-    Set-ExcelRange -Worksheet $ws -Range "G$($workingRow + 30)" -Value $vm.OSProfile.AllowExtensionOperations
-    Set-ExcelRange -Worksheet $ws -Range "G$($workingRow + 31)" -Value $vm.BillingProfile
-    Set-ExcelRange -Worksheet $ws -Range "G$($workingRow + 32)" -Value $vm.Plan
-    Set-ExcelRange -Worksheet $ws -Range "G$($workingRow + 35)" -Value $vm.StorageProfile.ImageReference.Publisher
-    Set-ExcelRange -Worksheet $ws -Range "G$($workingRow + 36)" -Value $vm.StorageProfile.ImageReference.Offer
-    Set-ExcelRange -Worksheet $ws -Range "G$($workingRow + 37)" -Value $vm.StorageProfile.ImageReference.Sku
-    Set-ExcelRange -Worksheet $ws -Range "G$($workingRow + 38)" -Value $vm.StorageProfile.ImageReference.Version
-    Set-ExcelRange -Worksheet $ws -Range "G$($workingRow + 39)" -Value $vm.StorageProfile.ImageReference.ExactVersion
-    Set-ExcelRange -Worksheet $ws -Range "G$($workingRow + 40)" -Value $vm.StorageProfile.ImageReference.id
-    Set-ExcelRange -Worksheet $ws -Range "G$($workingRow + 42)" -Value $vm.StorageProfile.OsDisk.OsType
-    Set-ExcelRange -Worksheet $ws -Range "G$($workingRow + 43)" -Value $vm.StorageProfile.OsDisk.EncryptionSettings
-    Set-ExcelRange -Worksheet $ws -Range "G$($workingRow + 44)" -Value $vm.StorageProfile.OsDisk.Name
-    Set-ExcelRange -Worksheet $ws -Range "G$($workingRow + 45)" -Value $vm.StorageProfile.OsDisk.Caching
-    Set-ExcelRange -Worksheet $ws -Range "G$($workingRow + 46)" -Value $vm.StorageProfile.OsDisk.WriteAcceleratorEnabled
-    Set-ExcelRange -Worksheet $ws -Range "G$($workingRow + 47)" -Value $vm.StorageProfile.OsDisk.CreateOption
-    Set-ExcelRange -Worksheet $ws -Range "G$($workingRow + 49)" -Value $vm.StorageProfile.OsDisk.ManagedDisk.StorageAccountType
-    Set-ExcelRange -Worksheet $ws -Range "G$($workingRow + 50)" -Value $vm.StorageProfile.OsDisk.ManagedDisk.DiskEncryptionSet
-    Set-ExcelRange -Worksheet $ws -Range "G$($workingRow + 51)" -Value $vm.StorageProfile.OsDisk.ManagedDisk.id
-    Set-ExcelRange -Worksheet $ws -Range "G$($workingRow + 57)" -Value $vm.EvictionPolicy
-    Set-ExcelRange -Worksheet $ws -Range "G$($workingRow + 58)" -Value $vm.Priority
+    $row += 1
 
-    for($j=0;$j -lt $vm.StorageProfile.DataDisks.Count;$j++ ){
-        Write-Output "Adding $($vm.StorageProfile.DataDisks[$j].Name) to $($vm.Name)"
-        $addedRowNumbers = 11 # 足される行数
-        $addedRowPoint = 54 # リソースの中の何行目に足されるか
-        $fromRow = ($workingRow - 1) + $addedRowPoint + $j * $addedRowNumbers # 挿入が始まる行番号
-        $toRow = ($workingRow -1) + $addedRowPoint + ($j + 1) * $addedRowNumbers -1 # 挿入が終わる行番号
-        $ws.InsertRow($fromRow,$addedRowNumbers) 
-        $templatePackage.Workbook.Worksheets["DataDisk"].Cells["A1:G${addedRowNumbers}"].Copy($ws.Cells["A${fromRow}:G${toRow}"])
+    # create the summary of Disk
+    Set-ExcelRange -Worksheet $summaryWs -Range "A${row}" -Value "Disk" -FontSize 12 -Bold
+    $row ++
+    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,1].Address -Value "`#" -Width 5 -BackgroundColor $bgc -BorderAround Thin
+    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,2].Address -Value "Name" -Width 40 -BackgroundColor $bgc -BorderAround Thin
+    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,3].Address -Value "ResourceGroupName" -Width 20 -BackgroundColor $bgc -BorderAround Thin
+    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,4].Address -Value "Location" -Width 20 -BackgroundColor $bgc -BorderAround Thin
+    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,5].Address -Value "Sku" -Width 20 -BackgroundColor $bgc -BorderAround Thin
+    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,6].Address -Value "Size" -Width 20 -BackgroundColor $bgc -BorderAround Thin
+    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,7].Address -Value "Detail" -Width 20 -BackgroundColor $bgc -BorderAround Thin
+    $row ++
 
-        Set-ExcelRange -Worksheet $ws -Range "G$($fromRow + 1)" -Value  $vm.StorageProfile.DataDisks[$j].Lun
-        Set-ExcelRange -Worksheet $ws -Range "G$($fromRow + 2)" -Value  $vm.StorageProfile.DataDisks[$j].Name
-        Set-ExcelRange -Worksheet $ws -Range "G$($fromRow + 3)" -Value  $vm.StorageProfile.DataDisks[$j].Caching
-        Set-ExcelRange -Worksheet $ws -Range "G$($fromRow + 4)" -Value  $vm.StorageProfile.DataDisks[$j].CreateOption
-        Set-ExcelRange -Worksheet $ws -Range "G$($fromRow + 6)" -Value  $vm.StorageProfile.DataDisks[$j].ManagedDisk.StorageAccountType
-        Set-ExcelRange -Worksheet $ws -Range "G$($fromRow + 7)" -Value  $vm.StorageProfile.DataDisks[$j].ManagedDisk.DiskEncryptionSet
-        Set-ExcelRange -Worksheet $ws -Range "G$($fromRow + 8)" -Value  $vm.StorageProfile.DataDisks[$j].ManagedDisk.Id
-        Set-ExcelRange -Worksheet $ws -Range "G$($fromRow + 9)" -Value  $vm.StorageProfile.DataDisks[$j].ToBeDetached
+    for($i=0;$i -lt $disks.Count; $i++){
+        $disk = $disks[$i]
+        Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,1].Address -Value ($row -4) -BorderAround Thin
+        Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,2].Address -Value $disk.Name -BorderAround Thin
+        Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,3].Address -Value $disk.ResourceGroupName -BorderAround Thin
+        Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,4].Address -Value $disk.Location -BorderAround Thin
+        Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,5].Address -Value $disk.Sku.Name -BorderAround Thin
+        Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,6].Address -Value $disk.DiskSizeGB -BorderAround Thin
+
+        $formular = '=HYPERLINK("#disks!vnet_' + ($($disk.Name) -replace "-","_") + '","Link")'
+        Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,7].Address -Formula $formular -BorderAround Thin
+        $row++
     }
 
-    $workingRow += $addedRowNumbers * $vm.StorageProfile.DataDisks.Count
+    $row += 1
 
-    if ( $vm.StorageProfile.OsDisk.OsType -eq "Windows" ){
-        $workingRow += $vmWinHeight + 1
+    # create the summary of Nic
+    Set-ExcelRange -Worksheet $summaryWs -Range "A${row}" -Value "Network Interface" -FontSize 12 -Bold
+    $row ++
+    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,1].Address -Value "`#" -Width 5 -BackgroundColor $bgc -BorderAround Thin
+    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,2].Address -Value "Name" -Width 40 -BackgroundColor $bgc -BorderAround Thin
+    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,3].Address -Value "ResourceGroupName" -Width 20 -BackgroundColor $bgc -BorderAround Thin
+    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,4].Address -Value "Location" -Width 20 -BackgroundColor $bgc -BorderAround Thin
+    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,5].Address -Value "PrivateIpAddress" -Width 20 -BackgroundColor $bgc -BorderAround Thin
+    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,6].Address -Value "PrivateIpAllocationMethod" -Width 20 -BackgroundColor $bgc -BorderAround Thin
+    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,7].Address -Value "Detail" -Width 20 -BackgroundColor $bgc -BorderAround Thin
+    $row ++
+
+    for($i=0;$i -lt $nics.Count; $i++){
+        $nic = $nics[$i]
+        Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,1].Address -Value ($row -4) -BorderAround Thin
+        Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,2].Address -Value $nic.Name -BorderAround Thin
+        Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,3].Address -Value $nic.ResourceGroupName -BorderAround Thin
+        Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,4].Address -Value $nic.Location -BorderAround Thin
+        Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,5].Address -Value $nic.IpConfigurations[0].PrivateIpAddress -BorderAround Thin
+        Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,6].Address -Value $nic.IpConfigurations[0].PrivateIpAllocationMethod -BorderAround Thin
+
+        $formular = '=HYPERLINK("#nics!nic_' + ($($nic.Name) -replace "-","_") + '","Link")'
+        Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,7].Address -Formula $formular -BorderAround Thin
+        $row++
     }
-    if ( $vm.StorageProfile.OsDisk.OsType -eq "Linux" ){
-        $workingRow += $vmLinuxHeight + 1
+
+    $row += 1
+
+    # create the summary of Network Security Group
+    Set-ExcelRange -Worksheet $summaryWs -Range "A${row}" -Value "Network Security Group" -FontSize 12 -Bold
+    $row ++
+    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,1].Address -Value "`#" -Width 5 -BackgroundColor $bgc -BorderAround Thin
+    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,2].Address -Value "Name" -Width 40 -BackgroundColor $bgc -BorderAround Thin
+    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,3].Address -Value "ResourceGroupName" -Width 20 -BackgroundColor $bgc -BorderAround Thin
+    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,4].Address -Value "Location" -Width 20 -BackgroundColor $bgc -BorderAround Thin
+    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,5].Address -Value "Detail" -Width 20 -BackgroundColor $bgc -BorderAround Thin
+    $row ++
+
+    for($i=0;$i -lt $nsgs.Count; $i++){
+        $nsg = $nsgs[$i]
+        Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,1].Address -Value ($row -4) -BorderAround Thin
+        Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,2].Address -Value $nsg.Name -BorderAround Thin
+        Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,3].Address -Value $nsg.ResourceGroupName -BorderAround Thin
+        Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,4].Address -Value $nsg.Location -BorderAround Thin
+
+
+        $formular = '=HYPERLINK("#nsgs!nsg_' + ($($nsg.Name) -replace "-","_") + '","Link")'
+        Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,5].Address -Formula $formular -BorderAround Thin
+        $row++
+    }
+
+    $row += 1
+
+    # create the summary of PublicIP Address
+    Set-ExcelRange -Worksheet $summaryWs -Range "A${row}" -Value "Public Ip Address" -FontSize 12 -Bold
+    $row ++
+    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,1].Address -Value "`#" -Width 5 -BackgroundColor $bgc -BorderAround Thin
+    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,2].Address -Value "Name" -Width 40 -BackgroundColor $bgc -BorderAround Thin
+    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,3].Address -Value "ResourceGroupName" -Width 20 -BackgroundColor $bgc -BorderAround Thin
+    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,4].Address -Value "Location" -Width 20 -BackgroundColor $bgc -BorderAround Thin
+    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,5].Address -Value "PublicIpAllocationMethod" -Width 20 -BackgroundColor $bgc -BorderAround Thin
+    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,6].Address -Value "IpAddress" -Width 20 -BackgroundColor $bgc -BorderAround Thin
+    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,7].Address -Value "Detail" -Width 20 -BackgroundColor $bgc -BorderAround Thin
+    $row ++
+
+    for($i=0;$i -lt $pips.Count; $i++){
+        $pip = $pips[$i]
+        Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,1].Address -Value ($row -4) -BorderAround Thin
+        Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,2].Address -Value $pip.Name -BorderAround Thin
+        Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,3].Address -Value $pip.ResourceGroupName -BorderAround Thin
+        Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,4].Address -Value $pip.Location -BorderAround Thin
+        Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,5].Address -Value $pip.PublicIpAllocationMethod -BorderAround Thin
+        Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,6].Address -Value $pip.IpAddress -BorderAround Thin
+
+        $formular = '=HYPERLINK("#pips!pip_' + ($($pip.Name) -replace "-","_") + '","Link")'
+        Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,7].Address -Formula $formular -BorderAround Thin
+        $row++
+    }
+
+    $row += 1
+
+    # create the summary of storage account
+    Set-ExcelRange -Worksheet $summaryWs -Range "A${row}" -Value "Storage account" -FontSize 12 -Bold
+    $row ++
+    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,1].Address -Value "`#" -Width 5 -BackgroundColor $bgc -BorderAround Thin
+    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,2].Address -Value "Name" -Width 40 -BackgroundColor $bgc -BorderAround Thin
+    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,3].Address -Value "ResourceGroupName" -Width 20 -BackgroundColor $bgc -BorderAround Thin
+    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,4].Address -Value "PrimaryLocation" -Width 20 -BackgroundColor $bgc -BorderAround Thin
+    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,5].Address -Value "SkuName" -Width 20 -BackgroundColor $bgc -BorderAround Thin
+    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,6].Address -Value "Kind" -Width 20 -BackgroundColor $bgc -BorderAround Thin
+    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,7].Address -Value "Detail" -Width 20 -BackgroundColor $bgc -BorderAround Thin
+    $row ++
+
+    for($i=0;$i -lt $storageAccounts.Count; $i++){
+        $storageAccount = $storageAccounts[$i]
+        Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,1].Address -Value ($row -4) -BorderAround Thin
+        Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,2].Address -Value $storageAccount.StorageAccountName -BorderAround Thin
+        Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,3].Address -Value $storageAccount.ResourceGroupName -BorderAround Thin
+        Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,4].Address -Value $storageAccount.PrimaryLocation -BorderAround Thin
+        Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,5].Address -Value $storageAccount.Sku.Name -BorderAround Thin
+        Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,6].Address -Value $storageAccount.Kind -BorderAround Thin
+
+        $formular = '=HYPERLINK("#storageAccounts!storageAccount_' + ($($storageAccount.StorageAccountName) -replace "-","_") + '","Link")'
+        Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,7].Address -Formula $formular -BorderAround Thin
+        $row++
     }
 }
 
-#-------------------------------------------------------------------------------------------
-# Create VirtualNetwork
-#-------------------------------------------------------------------------------------------
+function New-VmDetails() {
 
-if ( $vnets -ne $Null ){
-    $vnetWs = Add-Worksheet -ExcelPackage $excelPackage -WorksheetName "VirtualNetworks"
-    $shortCols = @("A","B","C","D","E")
-    foreach ($shortCol in $shortCols) {
-        Set-ExcelRange -Worksheet $vnetWs -Range "${shortCol}:${shortCol}" -Width (20/7).ToString()
+    #-------------------------------------------------------------------------------------------
+    # Create VirtualMachine
+    #-------------------------------------------------------------------------------------------
+    if ( $vms -ne $Null ){
+        $ws = Add-Worksheet -ExcelPackage $excelPackage -WorksheetName "VirtualMachines"
+        $shortCols = @("A","B","C","D","E")
+        foreach ($shortCol in $shortCols) {
+            Set-ExcelRange -Worksheet $ws -Range "${shortCol}:${shortCol}" -Width (20/7).ToString()
+        }
+        Set-ExcelRange -Worksheet $ws -Range "F:F" -Width (20).ToString()
+        Set-ExcelRange -Worksheet $ws -Range "G:G" -Width (100).ToString()
     }
-    Set-ExcelRange -Worksheet $vnetWs -Range "F:F" -Width (20).ToString()
-    Set-ExcelRange -Worksheet $vnetWs -Range "G:G" -Width (100).ToString()
-}
 
-$vnetHeight = 12
-$workingRow = 1
-for($i = 0; $i -lt $vnets.Count; $i++){
-    $vnet = $vnets[$i]
+    $vmWinHeight = 60
+    $vmLinuxHeight = 60
+    $workingRow = 1 # エクスポート中のリソースのスタート行
+    for($i = 0; $i -lt $vms.Count; $i++){
+        $vm = $vms[$i]
 
-    Write-Output "Exporting $($vnet.Name)"
+        Write-Output "Exporting $($vm.Name)"
+        if ( $vm.StorageProfile.OsDisk.OsType -eq "Windows" ){
+            $templatePackage.Workbook.Worksheets["VirtualMachine_windows"].Cells["A1:G60"].Copy($ws.Cells["A${workingRow}:G$($workingRow + $vmWinHeight)"])          
+        }
 
-    $templatePackage.Workbook.Worksheets["VirtualNetwork"].Cells["A1:G${vnetHeight}"].Copy($vnetWs.Cells["A${workingRow}:G$($workingRow + $vnetHeight)"])
+        if ( $vm.StorageProfile.OsDisk.OsType -eq "Linux" ){
+            $templatePackage.Workbook.Worksheets["VirtualMachine_linux"].Cells["A1:G60"].Copy($ws.Cells["A${workingRow}:G$($workingRow + $vmLinuxHeight)"])          
+        }
 
-    Set-ExcelRange -Worksheet $vnetWs -Range "A$($workingRow)" -Value $vnet.Name -Bold
-    Add-ExcelName -Range $vnetWs.Cells["A$($workingRow)"] -RangeName "vnet_$($vnet.Name)" -WarningAction SilentlyContinue
-    Set-ExcelRange -Worksheet $vnetWs -Range "G$($workingRow + 1)" -Value $vnet.ResourceGroupName
-    Set-ExcelRange -Worksheet $vnetWs -Range "G$($workingRow + 2)" -Value $vnet.Name
-    Set-ExcelRange -Worksheet $vnetWs -Range "G$($workingRow + 3)" -Value $vnet.Location
-    Set-ExcelRange -Worksheet $vnetWs -Range "G$($workingRow + 5)" -Value ($vnet.AddressSpace.AddressPrefixes -join ",")
-    Set-ExcelRange -Worksheet $vnetWs -Range "G$($workingRow + 7)" -Value ($vnet.DhcpOptions.DnsServers -join ",")
-
-    for($j=0;$j -lt $vnet.Subnets.Count;$j++ ){
-        Write-Output "Adding $($vnet.Subnets[$j].Name) to $($vnet.Name)"
-        $addedRowNumbers = 15 # 足される行数
-        $addedRowPoint = 10 # リソースの中の何行目に足されるか
-        $fromRow = ($workingRow - 1) + $addedRowPoint + $j * $addedRowNumbers # 挿入が始まる行番号
-        $toRow = ($workingRow -1) + $addedRowPoint + ($j + 1) * $addedRowNumbers -1 # 挿入が終わる行番号
-        $vnetWs.InsertRow($fromRow,$addedRowNumbers) 
-        $templatePackage.Workbook.Worksheets["Subnet"].Cells["A1:G${addedRowNumbers}"].Copy($vnetWs.Cells["A${fromRow}:G${toRow}"])
-
-        Set-ExcelRange -Worksheet $vnetWs -Range "G$($fromRow + 1)" -Value  $vnet.Subnets[$j].Name
-        Set-ExcelRange -Worksheet $vnetWs -Range "G$($fromRow + 2)" -Value  ($vnet.Subnets[$j].AddressPrefix -join ",")
-        Set-ExcelRange -Worksheet $vnetWs -Range "G$($fromRow + 3)" -Value  $vnet.Subnets[$j].ServiceAssociationLinks
-        Set-ExcelRange -Worksheet $vnetWs -Range "G$($fromRow + 5)" -Value  $vnet.Subnets[$j].NetworkSecurityGroup.Id
-        Set-ExcelRange -Worksheet $vnetWs -Range "G$($fromRow + 7)" -Value  $vnet.Subnets[$j].RouteTable.DisableBgpRoutePropagation
-        Set-ExcelRange -Worksheet $vnetWs -Range "G$($fromRow + 8)" -Value  $vnet.Subnets[$j].RouteTable.Id
-        Set-ExcelRange -Worksheet $vnetWs -Range "G$($fromRow + 10)" -Value  $vnet.Subnets[$j].NatGateway.Id
-        Set-ExcelRange -Worksheet $vnetWs -Range "G$($fromRow + 11)" -Value  $vnet.Subnets[$j].ServiceEndpoints
-        Set-ExcelRange -Worksheet $vnetWs -Range "G$($fromRow + 12)" -Value  $vnet.Subnets[$j].ServiceEndpointPolicies
-        Set-ExcelRange -Worksheet $vnetWs -Range "G$($fromRow + 13)" -Value  $vnet.Subnets[$j].PrivateLinkServiceNetworkPolicies
-        Set-ExcelRange -Worksheet $vnetWs -Range "G$($fromRow + 14)" -Value  $vnet.Subnets[$j].Delegations
+        Set-ExcelRange -Worksheet $ws -Range "A${workingRow}" -Value $vm.Name -Bold; $workingRow++
+        Add-ExcelName -Range $ws.Cells["A${workingRow}"] -RangeName "vm_$($vm.Name)" -WarningAction SilentlyContinue
+        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.ResourceGroupName; $workingRow++
+        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.Name; $workingRow++
+        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.Location; $workingRow++
+        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.LicenseType; $workingRow += 3
+        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.DiagnosticsProfile.BootDiagnostics.Enabled; $workingRow++
+        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.DiagnosticsProfile.BootDiagnostics.StorageUri; $workingRow+=2
+        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.HardwareProfile.VmSize; $workingRow+=4
+        # ToDo: Support multiple nics
+        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.NetworkProfile.NetworkInterfaces[0].Primary; $workingRow++
+        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.NetworkProfile.NetworkInterfaces[0].id; $workingRow+=2
+        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.OSProfile.ComputerName; $workingRow++
+        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.OSProfile.AdminUsername; $workingRow+=3
+        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.OSProfile.WindowsConfiguration.ProvisionVMAgent; $workingRow++
+        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.OSProfile.WindowsConfiguration.EnableAutomaticUpdates; $workingRow++
+        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.OSProfile.WindowsConfiguration.TimeZone; $workingRow++
+        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.OSProfile.WindowsConfiguration.AdditionalUnattendContent; $workingRow+=2
+        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.OSProfile.WindowsConfiguration.PatchSettings.PatchMode; $workingRow++
+        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.OSProfile.WindowsConfiguration.PatchSettings.EnableHotpatching; $workingRow++
+        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.OSProfile.WindowsConfiguration.WinRM; $workingRow++
+        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.OSProfile.Secrets; $workingRow++
+        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.OSProfile.AllowExtensionOperations; $workingRow++
+        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.BillingProfile; $workingRow++
+        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.Plan; $workingRow+=3
+        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.StorageProfile.ImageReference.Publisher; $workingRow++
+        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.StorageProfile.ImageReference.Offer; $workingRow++
+        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.StorageProfile.ImageReference.Sku; $workingRow++
+        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.StorageProfile.ImageReference.Version; $workingRow++
+        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.StorageProfile.ImageReference.ExactVersion; $workingRow++
+        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.StorageProfile.ImageReference.id; $workingRow+=2
+        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.StorageProfile.OsDisk.OsType; $workingRow++
+        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.StorageProfile.OsDisk.EncryptionSettings; $workingRow++
+        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.StorageProfile.OsDisk.Name; $workingRow++
+        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.StorageProfile.OsDisk.Caching; $workingRow++
+        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.StorageProfile.OsDisk.WriteAcceleratorEnabled; $workingRow++
+        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.StorageProfile.OsDisk.CreateOption; $workingRow+=2
+        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.StorageProfile.OsDisk.ManagedDisk.StorageAccountType; $workingRow++
+        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.StorageProfile.OsDisk.ManagedDisk.DiskEncryptionSet; $workingRow++
+        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.StorageProfile.OsDisk.ManagedDisk.id; $workingRow++
         
+        $workingRow++
+        for($j=0;$j -lt $vm.StorageProfile.DataDisks.Count;$j++ ){
+            Write-Output "Adding $($vm.StorageProfile.DataDisks[$j].Name) to $($vm.Name)"
+            $addedRowNumbers = 11 # 足される行数
+
+            $ws.InsertRow($workingRow,$addedRowNumbers) 
+            $templatePackage.Workbook.Worksheets["DataDisk"].Cells["A1:G${addedRowNumbers}"].Copy($ws.Cells["A${workingRow}:G$($workingRow + $addedRowNumbers -1)"])
+
+            $workingRow++
+            Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value  $vm.StorageProfile.DataDisks[$j].Lun; $workingRow++
+            Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value  $vm.StorageProfile.DataDisks[$j].Name; $workingRow++
+            Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value  $vm.StorageProfile.DataDisks[$j].Caching; $workingRow++
+            Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value  $vm.StorageProfile.DataDisks[$j].CreateOption; $workingRow+=2
+            Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value  $vm.StorageProfile.DataDisks[$j].ManagedDisk.StorageAccountType; $workingRow++
+            Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value  $vm.StorageProfile.DataDisks[$j].ManagedDisk.DiskEncryptionSet; $workingRow++
+            Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value  $vm.StorageProfile.DataDisks[$j].ManagedDisk.Id; $workingRow++
+            Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value  $vm.StorageProfile.DataDisks[$j].ToBeDetached; $workingRow++
+            Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value  $vm.StorageProfile.DataDisks[$j].DetachOption; $workingRow++
+        }
+        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.Identity; $workingRow++
+        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.Zones; $workingRow++
+        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.ProximityPlacementGroup; $workingRow++
+        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.Host; $workingRow++
+        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.EvictionPolicy; $workingRow++
+        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.Priority; $workingRow++
+        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.HostGroup; $workingRow++
+        $workingRow+=2
 
     }
 
-    $workingRow += $addedRowNumbers * $vnet.Subnets.Count
-
-    $workingRow += $vnetHeight + 1
 }
 
+function New-VnetDetails() {
 
+    #-------------------------------------------------------------------------------------------
+    # Create VirtualNetwork
+    #-------------------------------------------------------------------------------------------
 
-#-------------------------------------------------------------------------------------------
-# Create Disk
-#-------------------------------------------------------------------------------------------
-
-if ( $vnets -ne $Null ){
-    $diskWs = Add-Worksheet -ExcelPackage $excelPackage -WorksheetName "Disks"
-    $shortCols = @("A","B","C","D","E")
-    foreach ($shortCol in $shortCols) {
-        Set-ExcelRange -Worksheet $diskWs -Range "${shortCol}:${shortCol}" -Width (20/7).ToString()
+    if ( $vnets -ne $Null ){
+        $vnetWs = Add-Worksheet -ExcelPackage $excelPackage -WorksheetName "VirtualNetworks"
+        $shortCols = @("A","B","C","D","E")
+        foreach ($shortCol in $shortCols) {
+            Set-ExcelRange -Worksheet $vnetWs -Range "${shortCol}:${shortCol}" -Width (20/7).ToString()
+        }
+        Set-ExcelRange -Worksheet $vnetWs -Range "F:F" -Width (20).ToString()
+        Set-ExcelRange -Worksheet $vnetWs -Range "G:G" -Width (100).ToString()
     }
-    Set-ExcelRange -Worksheet $diskWs -Range "F:F" -Width (20).ToString()
-    Set-ExcelRange -Worksheet $diskWs -Range "G:G" -Width (100).ToString()
-    
-}
 
-$diskHeight = 23
-$workingRow = 1
-for($i = 0; $i -lt $disks.Count; $i++){
-    $disk = $disks[$i]
+    $vnetHeight = 12
+    $workingRow = 1
+    for($i = 0; $i -lt $vnets.Count; $i++){
+        $vnet = $vnets[$i]
 
-    Write-Output "Exporting $($disk.Name)"
+        Write-Output "Exporting $($vnet.Name)"
 
-    $templatePackage.Workbook.Worksheets["Disk"].Cells["A1:G${diskHeight}"].Copy($diskWs.Cells["A${workingRow}:G$($workingRow + $diskHeight)"])
+        $templatePackage.Workbook.Worksheets["VirtualNetwork"].Cells["A1:G${vnetHeight}"].Copy($vnetWs.Cells["A${workingRow}:G$($workingRow + $vnetHeight)"])
 
-    Set-ExcelRange -Worksheet $diskWs -Range "A$($workingRow)" -Value $disk.Name -Bold
-    Add-ExcelName -Range $diskWs.Cells["A$($workingRow)"] -RangeName "disk_$($disk.Name)" -WarningAction SilentlyContinue
-    Set-ExcelRange -Worksheet $diskWs -Range "G$($workingRow + 1)" -Value $disk.ResourceGroupName
-    Set-ExcelRange -Worksheet $diskWs -Range "G$($workingRow + 2)" -Value $disk.Name
-    Set-ExcelRange -Worksheet $diskWs -Range "G$($workingRow + 3)" -Value $disk.Location
-    Set-ExcelRange -Worksheet $diskWs -Range "G$($workingRow + 4)" -Value $disk.ManagedBy
-    Set-ExcelRange -Worksheet $diskWs -Range "G$($workingRow + 6)" -Value $disk.sku.Name
-    Set-ExcelRange -Worksheet $diskWs -Range "G$($workingRow + 7)" -Value $disk.sku.Tier
-    Set-ExcelRange -Worksheet $diskWs -Range "G$($workingRow + 8)" -Value $disk.Zone
-    Set-ExcelRange -Worksheet $diskWs -Range "G$($workingRow + 10)" -Value $disk.CreationData.CreateOption
-    Set-ExcelRange -Worksheet $diskWs -Range "G$($workingRow + 11)" -Value $disk.CreationData.StorageAccountId
-    Set-ExcelRange -Worksheet $diskWs -Range "G$($workingRow + 12)" -Value $disk.CreationData.ImageReference
-    Set-ExcelRange -Worksheet $diskWs -Range "G$($workingRow + 13)" -Value $disk.CreationData.GalleryImageReference
-    Set-ExcelRange -Worksheet $diskWs -Range "G$($workingRow + 14)" -Value $disk.DiskSizeGB
-    Set-ExcelRange -Worksheet $diskWs -Range "G$($workingRow + 15)" -Value $disk.DiskState
-    Set-ExcelRange -Worksheet $diskWs -Range "G$($workingRow + 17)" -Value $disk.Encryption.DiskEncryptionSetId
-    Set-ExcelRange -Worksheet $diskWs -Range "G$($workingRow + 18)" -Value $disk.Encryption.Type
-    Set-ExcelRange -Worksheet $diskWs -Range "G$($workingRow + 19)" -Value $disk.ShareInfo
-    Set-ExcelRange -Worksheet $diskWs -Range "G$($workingRow + 20)" -Value $disk.NetworkAccessPolicy
-    Set-ExcelRange -Worksheet $diskWs -Range "G$($workingRow + 21)" -Value $disk.Tier
-    Set-ExcelRange -Worksheet $diskWs -Range "G$($workingRow + 22)" -Value $disk.BurstingEnabled
+        Set-ExcelRange -Worksheet $vnetWs -Range "A$($workingRow)" -Value $vnet.Name -Bold; $workingRow++
+        Add-ExcelName -Range $vnetWs.Cells["A$($workingRow)"] -RangeName "vnet_$($vnet.Name)" -WarningAction SilentlyContinue;
+        Set-ExcelRange -Worksheet $vnetWs -Range "G${workingRow}" -Value $vnet.ResourceGroupName; $workingRow++
+        Set-ExcelRange -Worksheet $vnetWs -Range "G${workingRow}" -Value $vnet.Name; $workingRow++
+        Set-ExcelRange -Worksheet $vnetWs -Range "G${workingRow}" -Value $vnet.Location; $workingRow+=2
+        Set-ExcelRange -Worksheet $vnetWs -Range "G${workingRow}" -Value ($vnet.AddressSpace.AddressPrefixes -join ","); $workingRow+=2
+        Set-ExcelRange -Worksheet $vnetWs -Range "G${workingRow}" -Value ($vnet.DhcpOptions.DnsServers -join ","); $workingRow++
 
-    $workingRow += $diskHeight + 1
-}
+        $workingRow++
+        for($j=0;$j -lt $vnet.Subnets.Count;$j++ ){
+            Write-Output "Adding $($vnet.Subnets[$j].Name) to $($vnet.Name)"
+            $addedRowNumbers = 15 # 足される行数
+            $vnetWs.InsertRow($workingRow,$addedRowNumbers) 
+            $templatePackage.Workbook.Worksheets["Subnet"].Cells["A1:G${addedRowNumbers}"].Copy($vnetWs.Cells["A${workingRow}:G$($workingRow + $addedRowNumbers -1)"])
+            
+            $workingRow++
+            Set-ExcelRange -Worksheet $vnetWs -Range "G${workingRow}" -Value  $vnet.Subnets[$j].Name; $workingRow++
+            Set-ExcelRange -Worksheet $vnetWs -Range "G${workingRow}" -Value  ($vnet.Subnets[$j].AddressPrefix -join ","); $workingRow++
+            Set-ExcelRange -Worksheet $vnetWs -Range "G${workingRow}" -Value  $vnet.Subnets[$j].ServiceAssociationLinks; $workingRow+=2
+            Set-ExcelRange -Worksheet $vnetWs -Range "G${workingRow}" -Value  $vnet.Subnets[$j].NetworkSecurityGroup.Id; $workingRow+=2
+            Set-ExcelRange -Worksheet $vnetWs -Range "G${workingRow}" -Value  $vnet.Subnets[$j].RouteTable.DisableBgpRoutePropagation; $workingRow++
+            Set-ExcelRange -Worksheet $vnetWs -Range "G${workingRow}" -Value  $vnet.Subnets[$j].RouteTable.Id; $workingRow+=2
+            Set-ExcelRange -Worksheet $vnetWs -Range "G${workingRow}" -Value  $vnet.Subnets[$j].NatGateway.Id; $workingRow++
+            Set-ExcelRange -Worksheet $vnetWs -Range "G${workingRow}" -Value  $vnet.Subnets[$j].ServiceEndpoints; $workingRow++
+            Set-ExcelRange -Worksheet $vnetWs -Range "G${workingRow}" -Value  $vnet.Subnets[$j].ServiceEndpointPolicies; $workingRow++
+            Set-ExcelRange -Worksheet $vnetWs -Range "G${workingRow}" -Value  $vnet.Subnets[$j].PrivateLinkServiceNetworkPolicies; $workingRow++
+            Set-ExcelRange -Worksheet $vnetWs -Range "G${workingRow}" -Value  $vnet.Subnets[$j].Delegations; $workingRow++
 
-
-#-------------------------------------------------------------------------------------------
-# Create Nic
-#-------------------------------------------------------------------------------------------
-
-if ( $nics -ne $Null ){
-    Write-Output "Adding the new worksheet for Network Interface"
-    $nicWs = Add-Worksheet -ExcelPackage $excelPackage -WorksheetName "Nics"
-    $shortCols = @("A","B","C","D","E")
-    foreach ($shortCol in $shortCols) {
-        Set-ExcelRange -Worksheet $nicWs -Range "${shortCol}:${shortCol}" -Width (20/7).ToString()
-    }
-    Set-ExcelRange -Worksheet $nicWs -Range "F:F" -Width (20).ToString()
-    Set-ExcelRange -Worksheet $nicWs -Range "G:G" -Width (100).ToString()
-}
-
-$nicHeight = 28
-$workingRow = 1
-for($i = 0; $i -lt $nics.Count; $i++){
-    $nic = $nics[$i]
-
-    Write-Output "Exporting $($nic.Name)"
-
-    $templatePackage.Workbook.Worksheets["Nic"].Cells["A1:G${nicHeight}"].Copy($nicWs.Cells["A${workingRow}:G$($workingRow + $nicHeight)"])
-
-    Set-ExcelRange -Worksheet $nicWs -Range "A$($workingRow)" -Value $nic.Name -Bold
-    Add-ExcelName -Range $nicWs.Cells["A$($workingRow)"] -RangeName "nic_$($nic.Name)" -WarningAction SilentlyContinue
-    Set-ExcelRange -Worksheet $nicWs -Range "G$($workingRow + 1)" -Value $nic.ResourceGroupName
-    Set-ExcelRange -Worksheet $nicWs -Range "G$($workingRow + 2)" -Value $nic.Name
-    Set-ExcelRange -Worksheet $nicWs -Range "G$($workingRow + 3)" -Value $nic.Location
-    Set-ExcelRange -Worksheet $nicWs -Range "G$($workingRow + 4)" -Value $nic.VirtualMachine
-    Set-ExcelRange -Worksheet $nicWs -Range "G$($workingRow + 7)" -Value $nic.IpConfigurations[0].Name
-    Set-ExcelRange -Worksheet $nicWs -Range "G$($workingRow + 8)" -Value $nic.IpConfigurations[0].PrivateIpAddress
-    Set-ExcelRange -Worksheet $nicWs -Range "G$($workingRow + 9)" -Value $nic.IpConfigurations[0].PrivateIpAddressVersion
-    Set-ExcelRange -Worksheet $nicWs -Range "G$($workingRow + 11)" -Value $nic.IpConfigurations[0].Subnet.Id
-    Set-ExcelRange -Worksheet $nicWs -Range "G$($workingRow + 13)" -Value $nic.IpConfigurations[0].PublicIpAddress.Id
-    Set-ExcelRange -Worksheet $nicWs -Range "G$($workingRow + 14)" -Value $nic.IpConfigurations[0].PrivateIpAddressVersion
-    Set-ExcelRange -Worksheet $nicWs -Range "G$($workingRow + 15)" -Value $nic.IpConfigurations[0].LoadBalancerBackendAddressPools
-    Set-ExcelRange -Worksheet $nicWs -Range "G$($workingRow + 16)" -Value $nic.IpConfigurations[0].Primary
-    Set-ExcelRange -Worksheet $nicWs -Range "G$($workingRow + 17)" -Value $nic.IpConfigurations[0].ApplicationGatewayBackendAddressPools
-    Set-ExcelRange -Worksheet $nicWs -Range "G$($workingRow + 18)" -Value $nic.IpConfigurations[0].ApplicationSecurityGroups
-    Set-ExcelRange -Worksheet $nicWs -Range "G$($workingRow + 20)" -Value $nic.DnsSettings.DnsServers
-    Set-ExcelRange -Worksheet $nicWs -Range "G$($workingRow + 21)" -Value $nic.DnsSettings.AppliedDnsServers
-    Set-ExcelRange -Worksheet $nicWs -Range "G$($workingRow + 22)" -Value $nic.EnableIPForwarding
-    Set-ExcelRange -Worksheet $nicWs -Range "G$($workingRow + 23)" -Value $nic.EnableAcceleratedNetworking
-    Set-ExcelRange -Worksheet $nicWs -Range "G$($workingRow + 25)" -Value $nic.NetworkSecurityGroup.Id
-    Set-ExcelRange -Worksheet $nicWs -Range "G$($workingRow + 16)" -Value $nic.Primary
-    Set-ExcelRange -Worksheet $nicWs -Range "G$($workingRow + 27)" -Value $nic.MacAddress
-
-    $workingRow += $nicHeight + 1
-}
-
-
-#-------------------------------------------------------------------------------------------
-# Create Nsg
-#-------------------------------------------------------------------------------------------
-
-if ( $nsgs -ne $Null ){
-    Write-Output "Adding the new worksheet for Network interface"
-    $nsgWs = Add-Worksheet -ExcelPackage $excelPackage -WorksheetName "Nsgs"
-    $shortCols = @("A","B","C","D","E")
-    foreach ($shortCol in $shortCols) {
-        Set-ExcelRange -Worksheet $nsgWs -Range "${shortCol}:${shortCol}" -Width (20/7).ToString()
-    }
-    $shortCols = @("F","G","H","I","J","K","L","M","P")
-    foreach ($shortCol in $shortCols) {
-        Set-ExcelRange -Worksheet $nsgWs -Range "${shortCol}:${shortCol}" -Width (20).ToString()
+        }
+        Set-ExcelRange -Worksheet $vnetWs -Range "G${workingRow}" -Value $vnet.VirtualNetworkPeerings; $workingRow+=1
+        Set-ExcelRange -Worksheet $vnetWs -Range "G${workingRow}" -Value $vnet.EnableDdosProtection; $workingRow+=1
+        Set-ExcelRange -Worksheet $vnetWs -Range "G${workingRow}" -Value $vnet.DdosProtectionPlan; $workingRow+=1
+        $workingRow+=1
     }
 }
 
-$nsgHeight = 9
-$workingRow = 1
-for($i = 0; $i -lt $nsgs.Count; $i++){
-    $nsg = $nsgs[$i]
 
-    Write-Output "Exporting $($nsg.Name)"
+function New-DiskDetails() {
 
-    $templatePackage.Workbook.Worksheets["nsg"].Cells["A1:P${nsgHeight}"].Copy($nsgWs.Cells["A${workingRow}:P$($workingRow + $nsgHeight)"])
+    #-------------------------------------------------------------------------------------------
+    # Create Disk
+    #-------------------------------------------------------------------------------------------
 
-    Set-ExcelRange -Worksheet $nsgWs -Range "A$($workingRow)" -Value $nsg.Name -Bold
-    Add-ExcelName -Range $nsgWs.Cells["A$($workingRow)"] -RangeName "nsg_$($nsg.Name)" -WarningAction SilentlyContinue
-    Set-ExcelRange -Worksheet $nsgWs -Range "G$($workingRow + 1)" -Value $nsg.ResourceGroupName
-    Set-ExcelRange -Worksheet $nsgWs -Range "G$($workingRow + 2)" -Value $nsg.Name
-    Set-ExcelRange -Worksheet $nsgWs -Range "G$($workingRow + 3)" -Value $nsg.Location
-    $workingRow += 6
+    if ( $vnets -ne $Null ){
+        $diskWs = Add-Worksheet -ExcelPackage $excelPackage -WorksheetName "Disks"
+        $shortCols = @("A","B","C","D","E")
+        foreach ($shortCol in $shortCols) {
+            Set-ExcelRange -Worksheet $diskWs -Range "${shortCol}:${shortCol}" -Width (20/7).ToString()
+        }
+        Set-ExcelRange -Worksheet $diskWs -Range "F:F" -Width (20).ToString()
+        Set-ExcelRange -Worksheet $diskWs -Range "G:G" -Width (100).ToString()
+        
+    }
 
-    $nsgWs.InsertRow($workingRow,$nsg.SecurityRules.Count)
-    $sortedNsgRules = $nsg.SecurityRules | Sort-Object Direction,Priority
-    for($j=0;$j -lt $nsg.SecurityRules.Count; $j++){
-        Set-ExcelRange -Worksheet $nsgWs -Range "A${workingRow}" -Value $sortedNsgRules[$j].Direction -BorderAround Thick -BackgroundColor white
-        Set-ExcelRange -Worksheet $nsgWs -Range "A${workingRow}:E${workingRow}" -BorderAround Thick -BackgroundColor white
-        Set-ExcelRange -Worksheet $nsgWs -Range "F${workingRow}" -Value $sortedNsgRules[$j].Priority -BorderAround Thick -BackgroundColor white   
-        Set-ExcelRange -Worksheet $nsgWs -Range "G${workingRow}" -Value $sortedNsgRules[$j].Name -BorderAround Thick -BackgroundColor white
-        Set-ExcelRange -Worksheet $nsgWs -Range "H${workingRow}" -Value $sortedNsgRules[$j].Protocol -BorderAround Thick -BackgroundColor white   
-        Set-ExcelRange -Worksheet $nsgWs -Range "I${workingRow}" -Value $sortedNsgRules[$j].SourceAddressPrefix -BorderAround Thick -BackgroundColor white
-        Set-ExcelRange -Worksheet $nsgWs -Range "J${workingRow}" -Value $sortedNsgRules[$j].SourceApplicationSecurityGroups -BorderAround Thick -BackgroundColor white
-        Set-ExcelRange -Worksheet $nsgWs -Range "K${workingRow}" -Value $sortedNsgRules[$j].SourcePortRange -BorderAround Thick -BackgroundColor white
-        Set-ExcelRange -Worksheet $nsgWs -Range "L${workingRow}" -Value $sortedNsgRules[$j].DestinationAddressPrefix -BorderAround Thick -BackgroundColor white
-        Set-ExcelRange -Worksheet $nsgWs -Range "M${workingRow}" -Value $sortedNsgRules[$j].DestinationApplicationSecurityGroups -BorderAround Thick -BackgroundColor white
-        Set-ExcelRange -Worksheet $nsgWs -Range "N${workingRow}" -Value $sortedNsgRules[$j].DestinationPortRange -BorderAround Thick -BackgroundColor white
-        Set-ExcelRange -Worksheet $nsgWs -Range "O${workingRow}" -Value $sortedNsgRules[$j].Access -BorderAround Thick -BackgroundColor white
-        Set-ExcelRange -Worksheet $nsgWs -Range "P${workingRow}" -Value $sortedNsgRules[$j].Description -BorderAround Thick -BackgroundColor white
+    $diskHeight = 23
+    $workingRow = 1
+    for($i = 0; $i -lt $disks.Count; $i++){
+        $disk = $disks[$i]
+
+        Write-Output "Exporting $($disk.Name)"
+
+        $templatePackage.Workbook.Worksheets["Disk"].Cells["A1:G${diskHeight}"].Copy($diskWs.Cells["A${workingRow}:G$($workingRow + $diskHeight)"])
+
+        Set-ExcelRange -Worksheet $diskWs -Range "A$($workingRow)" -Value $disk.Name -Bold; $workingRow++
+        Add-ExcelName -Range $diskWs.Cells["A$($workingRow)"] -RangeName "disk_$($disk.Name)" -WarningAction SilentlyContinue
+        Set-ExcelRange -Worksheet $diskWs -Range "G${workingRow}" -Value $disk.ResourceGroupName; $workingRow++
+        Set-ExcelRange -Worksheet $diskWs -Range "G${workingRow}" -Value $disk.Name; $workingRow++
+        Set-ExcelRange -Worksheet $diskWs -Range "G${workingRow}" -Value $disk.Location; $workingRow++
+        Set-ExcelRange -Worksheet $diskWs -Range "G${workingRow}" -Value $disk.ManagedBy; $workingRow+=2
+        Set-ExcelRange -Worksheet $diskWs -Range "G${workingRow}" -Value $disk.sku.Name; $workingRow++
+        Set-ExcelRange -Worksheet $diskWs -Range "G${workingRow}" -Value $disk.sku.Tier; $workingRow++
+        Set-ExcelRange -Worksheet $diskWs -Range "G${workingRow}" -Value $disk.Zone; $workingRow+=2
+        Set-ExcelRange -Worksheet $diskWs -Range "G${workingRow}" -Value $disk.CreationData.CreateOption; $workingRow++
+        Set-ExcelRange -Worksheet $diskWs -Range "G${workingRow}" -Value $disk.CreationData.StorageAccountId; $workingRow++
+        Set-ExcelRange -Worksheet $diskWs -Range "G${workingRow}" -Value $disk.CreationData.ImageReference; $workingRow++
+        Set-ExcelRange -Worksheet $diskWs -Range "G${workingRow}" -Value $disk.CreationData.GalleryImageReference; $workingRow++
+        Set-ExcelRange -Worksheet $diskWs -Range "G${workingRow}" -Value $disk.DiskSizeGB; $workingRow++
+        Set-ExcelRange -Worksheet $diskWs -Range "G${workingRow}" -Value $disk.DiskState; $workingRow+=2
+        Set-ExcelRange -Worksheet $diskWs -Range "G${workingRow}" -Value $disk.Encryption.DiskEncryptionSetId; $workingRow++
+        Set-ExcelRange -Worksheet $diskWs -Range "G${workingRow}" -Value $disk.Encryption.Type; $workingRow++
+        Set-ExcelRange -Worksheet $diskWs -Range "G${workingRow}" -Value $disk.ShareInfo; $workingRow++
+        Set-ExcelRange -Worksheet $diskWs -Range "G${workingRow}" -Value $disk.NetworkAccessPolicy; $workingRow++
+        Set-ExcelRange -Worksheet $diskWs -Range "G${workingRow}" -Value $disk.Tier; $workingRow++
+        Set-ExcelRange -Worksheet $diskWs -Range "G${workingRow}" -Value $disk.BurstingEnabled; $workingRow++
+
+        $workingRow++
+    }
+}
+
+
+function New-NicDetails() {
+    #-------------------------------------------------------------------------------------------
+    # Create Nic
+    #-------------------------------------------------------------------------------------------
+
+    if ( $nics -ne $Null ){
+        Write-Output "Adding the new worksheet for Network Interface"
+        $nicWs = Add-Worksheet -ExcelPackage $excelPackage -WorksheetName "Nics"
+        $shortCols = @("A","B","C","D","E")
+        foreach ($shortCol in $shortCols) {
+            Set-ExcelRange -Worksheet $nicWs -Range "${shortCol}:${shortCol}" -Width (20/7).ToString()
+        }
+        Set-ExcelRange -Worksheet $nicWs -Range "F:F" -Width (20).ToString()
+        Set-ExcelRange -Worksheet $nicWs -Range "G:G" -Width (100).ToString()
+    }
+
+    $nicHeight = 28
+    $workingRow = 1
+    for($i = 0; $i -lt $nics.Count; $i++){
+        $nic = $nics[$i]
+
+        Write-Output "Exporting $($nic.Name)"
+
+        $templatePackage.Workbook.Worksheets["Nic"].Cells["A1:G${nicHeight}"].Copy($nicWs.Cells["A${workingRow}:G$($workingRow + $nicHeight)"])
+
+        Set-ExcelRange -Worksheet $nicWs -Range "A$($workingRow)" -Value $nic.Name -Bold; $workingRow++
+        Add-ExcelName -Range $nicWs.Cells["A$($workingRow)"] -RangeName "nic_$($nic.Name)" -WarningAction SilentlyContinue
+        Set-ExcelRange -Worksheet $nicWs -Range "G${workingRow}" -Value $nic.ResourceGroupName; $workingRow++
+        Set-ExcelRange -Worksheet $nicWs -Range "G${workingRow}" -Value $nic.Name; $workingRow++
+        Set-ExcelRange -Worksheet $nicWs -Range "G${workingRow}" -Value $nic.Location; $workingRow++
+        Set-ExcelRange -Worksheet $nicWs -Range "G${workingRow}" -Value $nic.VirtualMachine; $workingRow+=3
+        # ToDo: Support multiple ip configuration
+        Set-ExcelRange -Worksheet $nicWs -Range "G${workingRow}" -Value $nic.IpConfigurations[0].Name; $workingRow++
+        Set-ExcelRange -Worksheet $nicWs -Range "G${workingRow}" -Value $nic.IpConfigurations[0].PrivateIpAddress; $workingRow++
+        Set-ExcelRange -Worksheet $nicWs -Range "G${workingRow}" -Value $nic.IpConfigurations[0].PrivateIpAllocationMethod; $workingRow+=2
+        Set-ExcelRange -Worksheet $nicWs -Range "G${workingRow}" -Value $nic.IpConfigurations[0].Subnet.Id; $workingRow+=2
+        Set-ExcelRange -Worksheet $nicWs -Range "G${workingRow}" -Value $nic.IpConfigurations[0].PublicIpAddress.Id; $workingRow++
+        Set-ExcelRange -Worksheet $nicWs -Range "G${workingRow}" -Value $nic.IpConfigurations[0].PrivateIpAddressVersion; $workingRow++
+        Set-ExcelRange -Worksheet $nicWs -Range "G${workingRow}" -Value $nic.IpConfigurations[0].LoadBalancerBackendAddressPools; $workingRow++
+        Set-ExcelRange -Worksheet $nicWs -Range "G${workingRow}" -Value $nic.IpConfigurations[0].Primary; $workingRow++
+        Set-ExcelRange -Worksheet $nicWs -Range "G${workingRow}" -Value $nic.IpConfigurations[0].ApplicationGatewayBackendAddressPools; $workingRow++
+        Set-ExcelRange -Worksheet $nicWs -Range "G${workingRow}" -Value $nic.IpConfigurations[0].ApplicationSecurityGroups; $workingRow+=2
+        Set-ExcelRange -Worksheet $nicWs -Range "G${workingRow}" -Value $nic.DnsSettings.DnsServers; $workingRow++
+        Set-ExcelRange -Worksheet $nicWs -Range "G${workingRow}" -Value $nic.DnsSettings.AppliedDnsServers; $workingRow++
+        Set-ExcelRange -Worksheet $nicWs -Range "G${workingRow}" -Value $nic.EnableIPForwarding; $workingRow++
+        Set-ExcelRange -Worksheet $nicWs -Range "G${workingRow}" -Value $nic.EnableAcceleratedNetworking; $workingRow+=2
+        Set-ExcelRange -Worksheet $nicWs -Range "G${workingRow}" -Value $nic.NetworkSecurityGroup.Id; $workingRow++
+        Set-ExcelRange -Worksheet $nicWs -Range "G${workingRow}" -Value $nic.Primary; $workingRow++
+        Set-ExcelRange -Worksheet $nicWs -Range "G${workingRow}" -Value $nic.MacAddress; $workingRow++
+
+        $workingRow++
+    }
+}
+
+
+function New-NsgDetails {
+
+    #-------------------------------------------------------------------------------------------
+    # Create Nsg
+    #-------------------------------------------------------------------------------------------
+
+    if ( $nsgs -ne $Null ){
+        Write-Output "Adding the new worksheet for Network interface"
+        $nsgWs = Add-Worksheet -ExcelPackage $excelPackage -WorksheetName "Nsgs"
+        $shortCols = @("A","B","C","D","E")
+        foreach ($shortCol in $shortCols) {
+            Set-ExcelRange -Worksheet $nsgWs -Range "${shortCol}:${shortCol}" -Width (20/7).ToString()
+        }
+        $shortCols = @("F","G","H","I","J","K","L","M","P")
+        foreach ($shortCol in $shortCols) {
+            Set-ExcelRange -Worksheet $nsgWs -Range "${shortCol}:${shortCol}" -Width (20).ToString()
+        }
+    }
+
+    $nsgHeight = 9
+    $workingRow = 1
+    for($i = 0; $i -lt $nsgs.Count; $i++){
+        $nsg = $nsgs[$i]
+
+        Write-Output "Exporting $($nsg.Name)"
+
+        $templatePackage.Workbook.Worksheets["nsg"].Cells["A1:P${nsgHeight}"].Copy($nsgWs.Cells["A${workingRow}:P$($workingRow + $nsgHeight)"])
+
+        Set-ExcelRange -Worksheet $nsgWs -Range "A$($workingRow)" -Value $nsg.Name -Bold
+        Add-ExcelName -Range $nsgWs.Cells["A$($workingRow)"] -RangeName "nsg_$($nsg.Name)" -WarningAction SilentlyContinue
+        Set-ExcelRange -Worksheet $nsgWs -Range "G$($workingRow + 1)" -Value $nsg.ResourceGroupName
+        Set-ExcelRange -Worksheet $nsgWs -Range "G$($workingRow + 2)" -Value $nsg.Name
+        Set-ExcelRange -Worksheet $nsgWs -Range "G$($workingRow + 3)" -Value $nsg.Location
+        $workingRow += 6
+
+        $nsgWs.InsertRow($workingRow,$nsg.SecurityRules.Count)
+        $sortedNsgRules = $nsg.SecurityRules | Sort-Object Direction,Priority
+        for($j=0;$j -lt $nsg.SecurityRules.Count; $j++){
+            Set-ExcelRange -Worksheet $nsgWs -Range "A${workingRow}" -Value $sortedNsgRules[$j].Direction -BorderAround Thin -BackgroundColor white
+            Set-ExcelRange -Worksheet $nsgWs -Range "A${workingRow}:E${workingRow}" -BorderAround Thin -BackgroundColor white
+            Set-ExcelRange -Worksheet $nsgWs -Range "F${workingRow}" -Value $sortedNsgRules[$j].Priority -BorderAround Thin -BackgroundColor white   
+            Set-ExcelRange -Worksheet $nsgWs -Range "G${workingRow}" -Value $sortedNsgRules[$j].Name -BorderAround Thin -BackgroundColor white
+            Set-ExcelRange -Worksheet $nsgWs -Range "H${workingRow}" -Value $sortedNsgRules[$j].Protocol -BorderAround Thin -BackgroundColor white   
+            Set-ExcelRange -Worksheet $nsgWs -Range "I${workingRow}" -Value $sortedNsgRules[$j].SourceAddressPrefix -BorderAround Thin -BackgroundColor white
+            Set-ExcelRange -Worksheet $nsgWs -Range "J${workingRow}" -Value $sortedNsgRules[$j].SourceApplicationSecurityGroups -BorderAround Thin -BackgroundColor white
+            Set-ExcelRange -Worksheet $nsgWs -Range "K${workingRow}" -Value $sortedNsgRules[$j].SourcePortRange -BorderAround Thin -BackgroundColor white
+            Set-ExcelRange -Worksheet $nsgWs -Range "L${workingRow}" -Value $sortedNsgRules[$j].DestinationAddressPrefix -BorderAround Thin -BackgroundColor white
+            Set-ExcelRange -Worksheet $nsgWs -Range "M${workingRow}" -Value $sortedNsgRules[$j].DestinationApplicationSecurityGroups -BorderAround Thin -BackgroundColor white
+            Set-ExcelRange -Worksheet $nsgWs -Range "N${workingRow}" -Value $sortedNsgRules[$j].DestinationPortRange -BorderAround Thin -BackgroundColor white
+            Set-ExcelRange -Worksheet $nsgWs -Range "O${workingRow}" -Value $sortedNsgRules[$j].Access -BorderAround Thin -BackgroundColor white
+            Set-ExcelRange -Worksheet $nsgWs -Range "P${workingRow}" -Value $sortedNsgRules[$j].Description -BorderAround Thin -BackgroundColor white
+            $workingRow ++ 
+        }
+
+        $nsg.NetworkInterfaces | ForEach-Object {
+            $workingRow ++ # 空の行の位置に移動
+            $k = 0
+            $nsgWs.InsertRow($workingRow,2) ## 空行とID行を追加
+            $templatePackage.Workbook.Worksheets["Nsg1stArrayOnlyId"].Cells["A1:K2"].Copy($nsgWs.Cells["A${workingRow}:P$($workingRow + 1)"])
+            $workingRow ++ # ID 行に移動
+            Set-ExcelRange -Worksheet $nsgWs -Range "G$($workingRow)" -Value $nsg.NetworkInterfaces[$k].Id -BorderAround Thin -BackgroundColor white
+            $k++
+        }
+
         $workingRow ++ 
+        $nsg.Subnets | ForEach-Object {
+            $workingRow ++ # 空の行の位置に移動
+            $k = 0
+            $nsgWs.InsertRow($workingRow,2)
+            $templatePackage.Workbook.Worksheets["Nsg1stArrayOnlyId"].Cells["A1:K2"].Copy($nsgWs.Cells["A${workingRow}:P$($workingRow + 1)"])
+            $workingRow ++ 
+            Set-ExcelRange -Worksheet $nsgWs -Range "G$($workingRow)" -Value $nsg.Subnets[$k].Id -BorderAround Thin -BackgroundColor white
+            $k++
+
+        }
+        Set-ExcelRange -Worksheet $nsgWs -Range "A$($workingRow):G$($workingRow)" -BorderBottom Thin
+
+        $workingRow += 2 # NetworkInterfaces,Subnets, space の3つ
     }
-
-    $nsg.NetworkInterfaces | ForEach-Object {
-        $workingRow ++ # 空の行の位置に移動
-        $k = 0
-        $nsgWs.InsertRow($workingRow,2) ## 空行とID行を追加
-        $templatePackage.Workbook.Worksheets["Nsg1stArrayOnlyId"].Cells["A1:K2"].Copy($nsgWs.Cells["A${workingRow}:P$($workingRow + 1)"])
-        $workingRow ++ # ID 行に移動
-        Set-ExcelRange -Worksheet $nsgWs -Range "G$($workingRow)" -Value $nsg.NetworkInterfaces[$k].Id -BorderAround Thick -BackgroundColor white
-        $k++
-    }
-
-    $workingRow ++ 
-    $nsg.Subnets | ForEach-Object {
-        $workingRow ++ # 空の行の位置に移動
-        $k = 0
-        $nsgWs.InsertRow($workingRow,2)
-        $templatePackage.Workbook.Worksheets["Nsg1stArrayOnlyId"].Cells["A1:K2"].Copy($nsgWs.Cells["A${workingRow}:P$($workingRow + 1)"])
-        $workingRow ++ 
-        Set-ExcelRange -Worksheet $nsgWs -Range "G$($workingRow)" -Value $nsg.Subnets[$k].Id -BorderAround Thick -BackgroundColor white
-        $k++
-
-    }
-    Set-ExcelRange -Worksheet $nsgWs -Range "A$($workingRow):G$($workingRow)" -BorderBottom Thick
-
-    $workingRow += 2 # NetworkInterfaces,Subnets, space の3つ
 }
 
+function New-PipDetails {
+        
+    #-------------------------------------------------------------------------------------------
+    # Create pip
+    #-------------------------------------------------------------------------------------------
 
-#-------------------------------------------------------------------------------------------
-# Create pip
-#-------------------------------------------------------------------------------------------
-
-if ( $pips -ne $Null ){
-    Write-Output "Adding the new worksheet for Network Interface"
-    $pipWs = Add-Worksheet -ExcelPackage $excelPackage -WorksheetName "pips"
-    $shortCols = @("A","B","C","D","E")
-    foreach ($shortCol in $shortCols) {
-        Set-ExcelRange -Worksheet $pipWs -Range "${shortCol}:${shortCol}" -Width (20/7).ToString()
+    if ( $pips -ne $Null ){
+        Write-Output "Adding the new worksheet for Network Interface"
+        $pipWs = Add-Worksheet -ExcelPackage $excelPackage -WorksheetName "PublicIps"
+        $shortCols = @("A","B","C","D","E")
+        foreach ($shortCol in $shortCols) {
+            Set-ExcelRange -Worksheet $pipWs -Range "${shortCol}:${shortCol}" -Width (20/7).ToString()
+        }
+        Set-ExcelRange -Worksheet $pipWs -Range "F:F" -Width (20).ToString()
+        Set-ExcelRange -Worksheet $pipWs -Range "G:G" -Width (100).ToString()
     }
-    Set-ExcelRange -Worksheet $pipWs -Range "F:F" -Width (20).ToString()
-    Set-ExcelRange -Worksheet $pipWs -Range "G:G" -Width (100).ToString()
+
+    $pipHeight = 16
+    $workingRow = 1
+    for($i = 0; $i -lt $pips.Count; $i++){
+        $pip = $pips[$i]
+
+        Write-Output "Exporting $($pip.Name)"
+
+        $templatePackage.Workbook.Worksheets["pip"].Cells["A1:G${pipHeight}"].Copy($pipWs.Cells["A${workingRow}:G$($workingRow + $pipHeight)"])
+
+        Set-ExcelRange -Worksheet $pipWs -Range "A$($workingRow)" -Value $pip.Name -Bold; $workingRow++
+        Add-ExcelName -Range $pipWs.Cells["A$($workingRow)"] -RangeName "pip_$($pip.Name)" -WarningAction SilentlyContinue
+        Set-ExcelRange -Worksheet $pipWs -Range "G${workingRow}" -Value $pip.ResourceGroupName; $workingRow++
+        Set-ExcelRange -Worksheet $pipWs -Range "G${workingRow}" -Value $pip.Name; $workingRow++
+        Set-ExcelRange -Worksheet $pipWs -Range "G${workingRow}" -Value $pip.Location; $workingRow++
+        Set-ExcelRange -Worksheet $pipWs -Range "G${workingRow}" -Value $pip.PublicIpAllocationMethod; $workingRow++
+        Set-ExcelRange -Worksheet $pipWs -Range "G${workingRow}" -Value $pip.IpAddress; $workingRow++
+        Set-ExcelRange -Worksheet $pipWs -Range "G${workingRow}" -Value $pip.PublicIpAddressVersion; $workingRow++
+        Set-ExcelRange -Worksheet $pipWs -Range "G${workingRow}" -Value $pip.IdleTimeoutInMinutes; $workingRow+=2
+        Set-ExcelRange -Worksheet $pipWs -Range "G${workingRow}" -Value $pip.DnsSettings.DomainNameLabel; $workingRow++
+        Set-ExcelRange -Worksheet $pipWs -Range "G${workingRow}" -Value $pip.DnsSettings.Fqdn; $workingRow++
+        Set-ExcelRange -Worksheet $pipWs -Range "G${workingRow}" -Value $pip.DnsSettings.ReverseFqdn; $workingRow++
+        Set-ExcelRange -Worksheet $pipWs -Range "G${workingRow}" -Value $pip.Zone; $workingRow+=2
+        Set-ExcelRange -Worksheet $pipWs -Range "G${workingRow}" -Value $pip.Sku.Name; $workingRow++
+        $workingRow++
+    }
 }
 
-$pipHeight = 16
-$workingRow = 1
-for($i = 0; $i -lt $pips.Count; $i++){
-    $pip = $pips[$i]
+function New-StorageAccountDetails {
 
-    Write-Output "Exporting $($pip.Name)"
+    #-------------------------------------------------------------------------------------------
+    # Create storage account
+    #-------------------------------------------------------------------------------------------
 
-    $templatePackage.Workbook.Worksheets["pip"].Cells["A1:G${pipHeight}"].Copy($pipWs.Cells["A${workingRow}:G$($workingRow + $pipHeight)"])
+    if ( $storageAccounts -ne $Null ){
+        Write-Output "Adding the new worksheet for storage account"
+        $storageAccountWs = Add-Worksheet -ExcelPackage $excelPackage -WorksheetName "StorageAccounts"
+        $shortCols = @("A","B","C","D","E")
+        foreach ($shortCol in $shortCols) {
+            Set-ExcelRange -Worksheet $storageAccountWs -Range "${shortCol}:${shortCol}" -Width (20/7).ToString()
+        }
+        $shortCols = @("F","G","H","I","J","K")
+        foreach ($shortCol in $shortCols) {
+            Set-ExcelRange -Worksheet $storageAccountWs -Range "${shortCol}:${shortCol}" -Width (20).ToString()
+        }
+    }
 
-    Set-ExcelRange -Worksheet $pipWs -Range "A$($workingRow)" -Value $pip.Name -Bold
-    Add-ExcelName -Range $pipWs.Cells["A$($workingRow)"] -RangeName "pip_$($pip.Name)" -WarningAction SilentlyContinue
-    Set-ExcelRange -Worksheet $pipWs -Range "G$($workingRow + 1)" -Value $pip.ResourceGroupName
-    Set-ExcelRange -Worksheet $pipWs -Range "G$($workingRow + 2)" -Value $pip.Name
-    Set-ExcelRange -Worksheet $pipWs -Range "G$($workingRow + 3)" -Value $pip.Location
-    Set-ExcelRange -Worksheet $pipWs -Range "G$($workingRow + 4)" -Value $pip.PublicIpAllocationMethod
-    Set-ExcelRange -Worksheet $pipWs -Range "G$($workingRow + 5)" -Value $pip.IpAddress
-    Set-ExcelRange -Worksheet $pipWs -Range "G$($workingRow + 6)" -Value $pip.PublicIpAddressVersion
-    Set-ExcelRange -Worksheet $pipWs -Range "G$($workingRow + 7)" -Value $pip.IdleTimeoutInMinutes
-    Set-ExcelRange -Worksheet $pipWs -Range "G$($workingRow + 9)" -Value $pip.DnsSettings.DomainNameLabel
-    Set-ExcelRange -Worksheet $pipWs -Range "G$($workingRow + 10)" -Value $pip.DnsSettings.Fqdn
-    Set-ExcelRange -Worksheet $pipWs -Range "G$($workingRow + 11)" -Value $pip.DnsSettings.ReverseFqdn
-    Set-ExcelRange -Worksheet $pipWs -Range "G$($workingRow + 14)" -Value $pip.Sku.Name
-    Set-ExcelRange -Worksheet $pipWs -Range "G$($workingRow + 15)" -Value $pip.Sku.Tier
-    $workingRow += $pipHeight + 1
+    $storageAccountHeight = 45
+    $workingRow = 1
+    for($i = 0; $i -lt $storageAccounts.Count; $i++){
+        $storageAccount = $storageAccounts[$i]
+
+        Write-Output "Exporting $($storageAccount.StorageAccountName)"
+
+        $templatePackage.Workbook.Worksheets["StorageAccount"].Cells["A1:K${storageAccountHeight}"].Copy($storageAccountWs.Cells["A${workingRow}:K$($workingRow + $storageAccountHeight)"])
+
+        Set-ExcelRange -Worksheet $storageAccountWs -Range "A$($workingRow)" -Value $storageAccount.StorageAccountName -Bold; $workingRow++
+        Add-ExcelName -Range $storageAccountWs.Cells["A$($workingRow)"] -RangeName "storageAccount_$($storageAccount.StorageAccountName)" -WarningAction SilentlyContinue
+        Set-ExcelRange -Worksheet $storageAccountWs -Range "G${workingRow}" -Value $storageAccount.ResourceGroupName; $workingRow++
+        Set-ExcelRange -Worksheet $storageAccountWs -Range "G${workingRow}" -Value $storageAccount.StorageAccountName; $workingRow++
+        Set-ExcelRange -Worksheet $storageAccountWs -Range "G${workingRow}" -Value $storageAccount.Location; $workingRow+=2
+        Set-ExcelRange -Worksheet $storageAccountWs -Range "G${workingRow}" -Value $storageAccount.Sku.Name; $workingRow++
+        Set-ExcelRange -Worksheet $storageAccountWs -Range "G${workingRow}" -Value $storageAccount.Sku.Tier; $workingRow++
+        Set-ExcelRange -Worksheet $storageAccountWs -Range "G${workingRow}" -Value $storageAccount.Kind; $workingRow++
+        Set-ExcelRange -Worksheet $storageAccountWs -Range "G${workingRow}" -Value $storageAccount.AccessTier; $workingRow++
+        Set-ExcelRange -Worksheet $storageAccountWs -Range "G${workingRow}" -Value $storageAccount.CustomDomain; $workingRow++
+        Set-ExcelRange -Worksheet $storageAccountWs -Range "G${workingRow}" -Value $storageAccount.Identity; $workingRow+=2
+        Set-ExcelRange -Worksheet $storageAccountWs -Range "G${workingRow}" -Value $storageAccount.PrimaryEndpoints.Blob; $workingRow++
+        Set-ExcelRange -Worksheet $storageAccountWs -Range "G${workingRow}" -Value $storageAccount.PrimaryEndpoints.Queue; $workingRow++
+        Set-ExcelRange -Worksheet $storageAccountWs -Range "G${workingRow}" -Value $storageAccount.PrimaryEndpoints.Table; $workingRow++
+        Set-ExcelRange -Worksheet $storageAccountWs -Range "G${workingRow}" -Value $storageAccount.PrimaryEndpoints.File; $workingRow++
+        Set-ExcelRange -Worksheet $storageAccountWs -Range "G${workingRow}" -Value $storageAccount.PrimaryEndpoints.Web; $workingRow++
+        Set-ExcelRange -Worksheet $storageAccountWs -Range "G${workingRow}" -Value $storageAccount.PrimaryEndpoints.Dfs; $workingRow++
+        Set-ExcelRange -Worksheet $storageAccountWs -Range "G${workingRow}" -Value $storageAccount.PrimaryEndpoints.MicrosoftEndpoints; $workingRow++
+        Set-ExcelRange -Worksheet $storageAccountWs -Range "G${workingRow}" -Value $storageAccount.PrimaryEndpoints.InternetEndpoints; $workingRow++
+        Set-ExcelRange -Worksheet $storageAccountWs -Range "G${workingRow}" -Value $storageAccount.PrimaryLocation; $workingRow+=2
+        Set-ExcelRange -Worksheet $storageAccountWs -Range "G${workingRow}" -Value $storageAccount.SecondaryEndpoints.Blob; $workingRow++
+        Set-ExcelRange -Worksheet $storageAccountWs -Range "G${workingRow}" -Value $storageAccount.SecondaryEndpoints.Queue; $workingRow++
+        Set-ExcelRange -Worksheet $storageAccountWs -Range "G${workingRow}" -Value $storageAccount.SecondaryEndpoints.Table; $workingRow++
+        Set-ExcelRange -Worksheet $storageAccountWs -Range "G${workingRow}" -Value $storageAccount.SecondaryEndpoints.File; $workingRow++
+        Set-ExcelRange -Worksheet $storageAccountWs -Range "G${workingRow}" -Value $storageAccount.SecondaryEndpoints.Web; $workingRow++
+        Set-ExcelRange -Worksheet $storageAccountWs -Range "G${workingRow}" -Value $storageAccount.SecondaryEndpoints.Dfs; $workingRow++
+        Set-ExcelRange -Worksheet $storageAccountWs -Range "G${workingRow}" -Value $storageAccount.SecondaryEndpoints.MicrosoftEndpoints; $workingRow++
+        Set-ExcelRange -Worksheet $storageAccountWs -Range "G${workingRow}" -Value $storageAccount.SecondaryEndpoints.InternetEndpoints; $workingRow++
+        Set-ExcelRange -Worksheet $storageAccountWs -Range "G${workingRow}" -Value $storageAccount.SecondaryLocation; $workingRow++
+        Set-ExcelRange -Worksheet $storageAccountWs -Range "G${workingRow}" -Value $storageAccount.EnableHttpsTrafficOnly; $workingRow+=2
+        Set-ExcelRange -Worksheet $storageAccountWs -Range "G${workingRow}" -Value $storageAccount.AzureFilesIdentityBasedAuth.DirectoryServiceOptions; $workingRow++
+        Set-ExcelRange -Worksheet $storageAccountWs -Range "G${workingRow}" -Value $storageAccount.AzureFilesIdentityBasedAuth.ActiveDirectoryProperties; $workingRow+=2
+        Set-ExcelRange -Worksheet $storageAccountWs -Range "G${workingRow}" -Value $storageAccount.NetworkRuleSet.Bypass; $workingRow++
+        Set-ExcelRange -Worksheet $storageAccountWs -Range "G${workingRow}" -Value $storageAccount.NetworkRuleSet.DefaultAction; $workingRow++
+
+        if ($storageAccounts.NetworkRuleSet.IpRules.Count -ne 0 ){
+            $workingRow++
+            $storageAccount.NetworkRuleSet.IpRules | ForEach-Object {
+                Write-Host "Insert iprule to $($storageAccount.StorageAccountName)"
+                $ipRule = $_
+                $storageAccountWs.InsertRow($workingRow,1)
+                $templatePackage.Workbook.Worksheets["StorageAccountAddOn"].Cells["A3:K3"].Copy($storageAccountWs.Cells["A${workingRow}:K${workingRow}"])
+                Set-ExcelRange -Worksheet $storageAccountWs -Range "G${workingRow}" -Value $IpRule.Action
+                Set-ExcelRange -Worksheet $storageAccountWs -Range "H${workingRow}" -Value $IpRule.IPAddressOrRange
+                $workingRow++
+            }    
+        } else {
+            $workingRow++
+        }
+
+        if ($storageAccounts.NetworkRuleSet.VirtualNetworkRules.Count -ne 0 ){
+            $workingRow++
+            $storageAccount.NetworkRuleSet.VirtualNetworkRules | ForEach-Object {
+                Write-Host "Insert iprule to $($storageAccount.StorageAccountName)"
+                $VirtualNetworkRule = $_
+                $storageAccountWs.InsertRow($workingRow,1)
+                $templatePackage.Workbook.Worksheets["StorageAccountAddOn"].Cells["A6:K6"].Copy($storageAccountWs.Cells["A${workingRow}:K${workingRow}"])
+                Set-ExcelRange -Worksheet $storageAccountWs -Range "G${workingRow}" -Value $VirtualNetworkRule.Action
+                Set-ExcelRange -Worksheet $storageAccountWs -Range "H${workingRow}" -Value $VirtualNetworkRule.VirtualNetworkResourceId
+                $workingRow++
+            }    
+        } else {
+            $workingRow++
+        }
+
+        Set-ExcelRange -Worksheet $storageAccountWs -Range "G${workingRow}" -Value $storageAccount.NetworkRuleSet.ResourceAccessRules; $workingRow++
+        Set-ExcelRange -Worksheet $storageAccountWs -Range "G${workingRow}" -Value $storageAccount.RoutingPreference; $workingRow++
+        Set-ExcelRange -Worksheet $storageAccountWs -Range "G${workingRow}" -Value $storageAccount.AllowBlobPublicAccess; $workingRow++
+        Set-ExcelRange -Worksheet $storageAccountWs -Range "G${workingRow}" -Value $storageAccount.EnableNfsV3; $workingRow++
+        Set-ExcelRange -Worksheet $storageAccountWs -Range "G${workingRow}" -Value $storageAccount.AllowSharedKeyAccess; $workingRow++
+       
+        $workingRow++
+    }
+
 }
+
+New-Summary
+New-VmDetails
+New-VnetDetails
+New-DiskDetails
+New-NicDetails
+New-NsgDetails
+New-PipDetails
+New-StorageAccountDetails
 
 Close-ExcelPackage $templatePackage
 Close-ExcelPackage $excelPackage -Show
+
+Remove-Item $temptemplateFileName
+Write-Output "Complete. Generates ${fileName}"
 
