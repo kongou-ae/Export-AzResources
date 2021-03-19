@@ -12,6 +12,23 @@ $nics = Get-AzNetworkInterface
 $nsgs = Get-AzNetworkSecurityGroup
 $pips = Get-AzPublicIpAddress
 $storageAccounts = Get-AzStorageAccount
+$rsvs = Get-AzRecoveryServicesVault
+for($i = 0; $i -lt $rsvs.Count; $i++){
+    $vault = $rsvs[$i]
+    $rsvProperty = Get-AzRecoveryServicesVaultProperty -VaultId $vault.ID
+    $rsvs[$i] | Add-Member StorageModelType $rsvProperty.StorageModelType
+    $rsvs[$i] | Add-Member StorageType $rsvProperty.StorageType
+    $rsvs[$i] | Add-Member StorageTypeState $rsvProperty.StorageTypeState
+    $rsvs[$i] | Add-Member EnhancedSecurityState $rsvProperty.EnhancedSecurityState
+    $rsvs[$i] | Add-Member SoftDeleteFeatureState $rsvProperty.SoftDeleteFeatureState
+    $rsvs[$i] | Add-Member encryptionProperties $rsvProperty.encryptionProperties
+
+    $rsvbackupProperty = Get-AzRecoveryServicesBackupProperties -Vault $vault
+    $rsvs[$i] | Add-Member BackupStorageRedundancy $rsvbackupProperty.BackupStorageRedundancy
+    $rsvs[$i] | Add-Member CrossRegionRestore $rsvbackupProperty.CrossRegionRestore
+}
+
+
 
 #-------------------------------------------------------------------------------------------
 # Initialize
@@ -252,6 +269,32 @@ function New-Summary {
 
         $formular = '=HYPERLINK("#storageAccounts!storageAccount_' + ($($storageAccount.StorageAccountName) -replace "-","_") + '","Link")'
         Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,7].Address -Formula $formular -BorderAround Thin
+        $row++
+    }
+
+    $row += 1
+
+    # create the summary of Recovery Service Vault
+    Set-ExcelRange -Worksheet $summaryWs -Range "A${row}" -Value "Recovery Service Vault" -FontSize 12 -Bold
+    $row ++
+    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,1].Address -Value "`#" -Width 5 -BackgroundColor $bgc -BorderAround Thin
+    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,2].Address -Value "Name" -Width 40 -BackgroundColor $bgc -BorderAround Thin
+    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,3].Address -Value "ResourceGroupName" -Width 20 -BackgroundColor $bgc -BorderAround Thin
+    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,4].Address -Value "Location" -Width 20 -BackgroundColor $bgc -BorderAround Thin
+    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,5].Address -Value "BackupStorageRedundancy" -Width 20 -BackgroundColor $bgc -BorderAround Thin
+    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,6].Address -Value "Detail" -Width 20 -BackgroundColor $bgc -BorderAround Thin
+    $row ++
+
+    for($i=0;$i -lt $rsvs.Count; $i++){
+        $rsv = $rsvs[$i]
+        Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,1].Address -Value ($row -4) -BorderAround Thin
+        Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,2].Address -Value $rsv.Name -BorderAround Thin
+        Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,3].Address -Value $rsv.ResourceGroupName -BorderAround Thin
+        Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,4].Address -Value $rsv.Location -BorderAround Thin
+        Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,5].Address -Value $rsv.BackupStorageRedundancy -BorderAround Thin
+
+        $formular = '=HYPERLINK("#RecoveryServiceVault!rsv_' + ($($rsv.Name) -replace "-","_") + '","Link")'
+        Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,6].Address -Formula $formular -BorderAround Thin
         $row++
     }
 }
@@ -758,6 +801,55 @@ function New-StorageAccountDetails {
 
 }
 
+function New-RecoveryServiceVaultDetails {
+
+    #-------------------------------------------------------------------------------------------
+    # Create recovery service vault
+    #-------------------------------------------------------------------------------------------
+
+    if ( $rsvs -ne $Null ){
+        Write-Output "Adding the new worksheet for recovery service vault"
+        $rsvWs = Add-Worksheet -ExcelPackage $excelPackage -WorksheetName "RecoveryServiceVaults"
+        $shortCols = @("A","B","C","D","E")
+        foreach ($shortCol in $shortCols) {
+            Set-ExcelRange -Worksheet $rsvWs -Range "${shortCol}:${shortCol}" -Width (20/7).ToString()
+        }
+        Set-ExcelRange -Worksheet $rsvWs -Range "F:F" -Width (20).ToString()
+        Set-ExcelRange -Worksheet $rsvWs -Range "G:G" -Width (100).ToString()
+    }
+
+    $rsvHeight = 20
+    $workingRow = 1
+    for($i = 0; $i -lt $rsvs.Count; $i++){
+        $rsv = $rsvs[$i]
+
+        Write-Output "Exporting $($rsv.Name)"
+
+        $templatePackage.Workbook.Worksheets["RecoveryServiceVault"].Cells["A1:G${rsvHeight}"].Copy($rsvWs.Cells["A${workingRow}:G$($workingRow + $rsvHeight)"])
+
+        Set-ExcelRange -Worksheet $rsvWs -Range "A$($workingRow)" -Value $rsv.Name -Bold; $workingRow++
+        Add-ExcelName -Range $rsvWs.Cells["A$($workingRow)"] -RangeName "rsv$($rsv.Name)" -WarningAction SilentlyContinue
+        Set-ExcelRange -Worksheet $rsvWs -Range "G${workingRow}" -Value $rsv.ResourceGroupName; $workingRow++
+        Set-ExcelRange -Worksheet $rsvWs -Range "G${workingRow}" -Value $rsv.Name; $workingRow++
+        Set-ExcelRange -Worksheet $rsvWs -Range "G${workingRow}" -Value $rsv.Location; $workingRow+=2
+        Set-ExcelRange -Worksheet $rsvWs -Range "G${workingRow}" -Value $rsv.PrivateEndpointStateForBackup; $workingRow+=2
+        Set-ExcelRange -Worksheet $rsvWs -Range "G${workingRow}" -Value $rsv.PrivateEndpointStateForSiteRecovery; $workingRow++
+        Set-ExcelRange -Worksheet $rsvWs -Range "G${workingRow}" -Value $rsv.StorageModelType; $workingRow++
+        Set-ExcelRange -Worksheet $rsvWs -Range "G${workingRow}" -Value $rsv.StorageType; $workingRow++
+        Set-ExcelRange -Worksheet $rsvWs -Range "G${workingRow}" -Value $rsv.StorageTypeState; $workingRow++
+        Set-ExcelRange -Worksheet $rsvWs -Range "G${workingRow}" -Value $rsv.EnhancedSecurityState; $workingRow++
+        Set-ExcelRange -Worksheet $rsvWs -Range "G${workingRow}" -Value $rsv.SoftDeleteFeatureState; $workingRow+=2
+        Set-ExcelRange -Worksheet $rsvWs -Range "G${workingRow}" -Value $rsv.EncryptionAtRestType; $workingRow++
+        Set-ExcelRange -Worksheet $rsvWs -Range "G${workingRow}" -Value $rsv.KeyUri; $workingRow++
+        Set-ExcelRange -Worksheet $rsvWs -Range "G${workingRow}" -Value $rsv.InfrastructureEncryptionState; $workingRow+=2
+        Set-ExcelRange -Worksheet $rsvWs -Range "G${workingRow}" -Value $rsv.BackupStorageRedundancy; $workingRow++
+        Set-ExcelRange -Worksheet $rsvWs -Range "G${workingRow}" -Value $rsv.CrossRegionRestore; $workingRow++
+
+        $workingRow++
+    }
+
+}
+
 New-Summary
 New-VmDetails
 New-VnetDetails
@@ -766,6 +858,7 @@ New-NicDetails
 New-NsgDetails
 New-PipDetails
 New-StorageAccountDetails
+New-RecoveryServiceVaultDetails
 
 Close-ExcelPackage $templatePackage
 Close-ExcelPackage $excelPackage -Show
