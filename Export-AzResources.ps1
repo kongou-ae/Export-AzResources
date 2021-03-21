@@ -315,7 +315,7 @@ function New-VmDetails() {
     }
 
     $vmWinHeight = 60
-    $vmLinuxHeight = 60
+    $vmLinuxHeight = 61
     $workingRow = 1 # エクスポート中のリソースのスタート行
     for($i = 0; $i -lt $vms.Count; $i++){
         $vm = $vms[$i]
@@ -326,7 +326,7 @@ function New-VmDetails() {
         }
 
         if ( $vm.StorageProfile.OsDisk.OsType -eq "Linux" ){
-            $templatePackage.Workbook.Worksheets["VirtualMachine_linux"].Cells["A1:G60"].Copy($ws.Cells["A${workingRow}:G$($workingRow + $vmLinuxHeight)"])          
+            $templatePackage.Workbook.Worksheets["VirtualMachine_linux"].Cells["A1:G61"].Copy($ws.Cells["A${workingRow}:G$($workingRow + $vmLinuxHeight)"])          
         }
 
         Set-ExcelRange -Worksheet $ws -Range "A${workingRow}" -Value $vm.Name -Bold; $workingRow++
@@ -343,13 +343,28 @@ function New-VmDetails() {
         Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.NetworkProfile.NetworkInterfaces[0].id; $workingRow+=2
         Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.OSProfile.ComputerName; $workingRow++
         Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.OSProfile.AdminUsername; $workingRow+=3
-        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.OSProfile.WindowsConfiguration.ProvisionVMAgent; $workingRow++
-        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.OSProfile.WindowsConfiguration.EnableAutomaticUpdates; $workingRow++
-        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.OSProfile.WindowsConfiguration.TimeZone; $workingRow++
-        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.OSProfile.WindowsConfiguration.AdditionalUnattendContent; $workingRow+=2
-        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.OSProfile.WindowsConfiguration.PatchSettings.PatchMode; $workingRow++
-        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.OSProfile.WindowsConfiguration.PatchSettings.EnableHotpatching; $workingRow++
-        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.OSProfile.WindowsConfiguration.WinRM; $workingRow++
+
+        if ( $vm.StorageProfile.OsDisk.OsType -eq "Windows" ){
+            Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.OSProfile.WindowsConfiguration.ProvisionVMAgent; $workingRow++
+            Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.OSProfile.WindowsConfiguration.EnableAutomaticUpdates; $workingRow++
+            Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.OSProfile.WindowsConfiguration.TimeZone; $workingRow++
+            Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.OSProfile.WindowsConfiguration.AdditionalUnattendContent; $workingRow+=2
+            Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.OSProfile.WindowsConfiguration.PatchSettings.PatchMode; $workingRow++
+            Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.OSProfile.WindowsConfiguration.PatchSettings.EnableHotpatching; $workingRow++
+            Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.OSProfile.WindowsConfiguration.WinRM; $workingRow++
+        }    
+        if ( $vm.StorageProfile.OsDisk.OsType -eq "Linux" ){
+            Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.OSProfile.LinuxConfiguration.DisablePasswordAuthentication; $workingRow+=4
+            if ($vm.OSProfile.LinuxConfiguration.Ssh -ne $null){
+                Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.OSProfile.LinuxConfiguration.Ssh.PublicKeys[0].Path; $workingRow++
+                Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.OSProfile.LinuxConfiguration.Ssh.PublicKeys[0].KeyData; $workingRow++    
+            } else {
+                $workingRow+=2
+            }
+            Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.OSProfile.LinuxConfiguration.ProvisionVMAgent; $workingRow+=2
+            Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.OSProfile.LinuxConfiguration.PatchSettings.PatchMode; $workingRow++
+        }
+
         Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.OSProfile.Secrets; $workingRow++
         Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.OSProfile.AllowExtensionOperations; $workingRow++
         Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.BillingProfile; $workingRow++
@@ -396,7 +411,7 @@ function New-VmDetails() {
         Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.EvictionPolicy; $workingRow++
         Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.Priority; $workingRow++
         Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.HostGroup; $workingRow++
-        $workingRow+=2
+        $workingRow++
 
     }
 
