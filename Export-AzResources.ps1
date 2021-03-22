@@ -315,19 +315,19 @@ function New-VmDetails() {
         
     }
 
-    $vmWinHeight = 60
-    $vmLinuxHeight = 61
+    $vmWinHeight = 61
+    $vmLinuxHeight = 62
     $workingRow = 1 # エクスポート中のリソースのスタート行
     for($i = 0; $i -lt $vms.Count; $i++){
         $vm = $vms[$i]
 
         Write-Output "Exporting $($vm.Name)"
         if ( $vm.StorageProfile.OsDisk.OsType -eq "Windows" ){
-            $templatePackage.Workbook.Worksheets["VirtualMachine_windows"].Cells["A1:G60"].Copy($ws.Cells["A${workingRow}:G$($workingRow + $vmWinHeight)"])          
+            $templatePackage.Workbook.Worksheets["VirtualMachine_windows"].Cells["A1:G${vmWinHeight}"].Copy($ws.Cells["A${workingRow}:G$($workingRow + $vmWinHeight)"])          
         }
 
         if ( $vm.StorageProfile.OsDisk.OsType -eq "Linux" ){
-            $templatePackage.Workbook.Worksheets["VirtualMachine_linux"].Cells["A1:G61"].Copy($ws.Cells["A${workingRow}:G$($workingRow + $vmLinuxHeight)"])          
+            $templatePackage.Workbook.Worksheets["VirtualMachine_linux"].Cells["A1:G${vmLinuxHeight}"].Copy($ws.Cells["A${workingRow}:G$($workingRow + $vmLinuxHeight)"])          
         }
 
         Set-ExcelRange -Worksheet $ws -Range "A${workingRow}" -Value $vm.Name -Bold; $workingRow++
@@ -368,7 +368,6 @@ function New-VmDetails() {
 
         Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.OSProfile.Secrets; $workingRow++
         Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.OSProfile.AllowExtensionOperations; $workingRow++
-        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.BillingProfile; $workingRow++
         Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.Plan; $workingRow+=3
         Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.StorageProfile.ImageReference.Publisher; $workingRow++
         Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.StorageProfile.ImageReference.Offer; $workingRow++
@@ -408,10 +407,12 @@ function New-VmDetails() {
         Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.Identity; $workingRow++
         Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.Zones; $workingRow++
         Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.ProximityPlacementGroup; $workingRow++
+        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.HostGroup; $workingRow++
         Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.Host; $workingRow++
         Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.EvictionPolicy; $workingRow++
-        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.Priority; $workingRow++
-        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.HostGroup; $workingRow++
+        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.Priority; $workingRow+=2
+        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.BillingProfile.MaxPrice; $workingRow++
+
         $workingRow++
     }
 
