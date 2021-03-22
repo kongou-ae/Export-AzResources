@@ -311,7 +311,8 @@ function New-VmDetails() {
             Set-ExcelRange -Worksheet $ws -Range "${shortCol}:${shortCol}" -Width (20/7).ToString()
         }
         Set-ExcelRange -Worksheet $ws -Range "F:F" -Width (20).ToString()
-        Set-ExcelRange -Worksheet $ws -Range "G:G" -Width (100).ToString()
+        Set-ExcelRange -Worksheet $ws -Range "G:G" -Width (100).ToString() 
+        
     }
 
     $vmWinHeight = 60
@@ -412,8 +413,9 @@ function New-VmDetails() {
         Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.Priority; $workingRow++
         Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.HostGroup; $workingRow++
         $workingRow++
-
     }
+
+    $ws.Cells["G1:G${workingRow}"].Style.ShrinkToFit = "TRUE"
 
 }
 
@@ -476,6 +478,7 @@ function New-VnetDetails() {
         Set-ExcelRange -Worksheet $vnetWs -Range "G${workingRow}" -Value $vnet.DdosProtectionPlan; $workingRow+=1
         $workingRow+=1
     }
+    $vnetWs.Cells["G1:G${workingRow}"].Style.ShrinkToFit = "TRUE"
 }
 
 
@@ -529,6 +532,7 @@ function New-DiskDetails() {
 
         $workingRow++
     }
+    $diskWs.Cells["G1:G${workingRow}"].Style.ShrinkToFit = "TRUE"
 }
 
 
@@ -584,6 +588,7 @@ function New-NicDetails() {
 
         $workingRow++
     }
+    $nicWs.Cells["G1:G${workingRow}"].Style.ShrinkToFit = "TRUE"
 }
 
 
@@ -666,6 +671,7 @@ function New-NsgDetails {
 
         $workingRow += 2 # NetworkInterfaces,Subnets, space の3つ
     }
+    $nsgWs.Cells["G1:G${workingRow}"].Style.ShrinkToFit = "TRUE"
 }
 
 function New-PipDetails {
@@ -710,6 +716,7 @@ function New-PipDetails {
         Set-ExcelRange -Worksheet $pipWs -Range "G${workingRow}" -Value $pip.Sku.Name; $workingRow++
         $workingRow++
     }
+    $pipWs.Cells["G1:G${workingRow}"].Style.ShrinkToFit = "TRUE"
 }
 
 function New-StorageAccountDetails {
@@ -813,6 +820,7 @@ function New-StorageAccountDetails {
        
         $workingRow++
     }
+    $storageAccountWs.Cells["G1:G${workingRow}"].Style.ShrinkToFit = "TRUE"
 
 }
 
@@ -862,6 +870,7 @@ function New-RecoveryServiceVaultDetails {
 
         $workingRow++
     }
+    $rsvWs.Cells["G1:G${workingRow}"].Style.ShrinkToFit = "TRUE"
 
 }
 
