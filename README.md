@@ -23,6 +23,7 @@ Install-Module Az -scope CurrentUser
 
 ## Supported resoruces
 
+- Resource Group
 - Virutal Machine
 - Virtual Network
 - Disk
