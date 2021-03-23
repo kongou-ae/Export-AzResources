@@ -5,6 +5,7 @@ $bgc =  [System.Drawing.Color]::FromArgb(217,225,242)
 #-------------------------------------------------------------------------------------------
 # Gather information which will be reported by this script 
 #-------------------------------------------------------------------------------------------
+$rgs = Get-AzResourceGroup
 $vms = Get-AzVM
 $vnets = Get-AzVirtualNetwork
 $disks = Get-AzDisk
@@ -84,10 +85,32 @@ function New-Summary {
     $summaryWs = $excelPackage.Workbook.Worksheets["SUMMARY"]
     Set-ExcelRange -Worksheet $summaryWs -Range "A1" -Value "Export-AzResources" -FontSize 16 -Bold
 
-    # create the summary of VirtualMachine
-    Set-ExcelRange -Worksheet $summaryWs -Range "A3" -Value "VirtualMachines" -FontSize 12 -Bold
+    # create the summary of ResourceGroup
+    Set-ExcelRange -Worksheet $summaryWs -Range "A3" -Value "ResourceGroups" -FontSize 12 -Bold
 
     $row = 4
+    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,1].Address -Value "`#" -Width 5 -BackgroundColor $bgc -BorderAround Thin
+    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,2].Address -Value "ResourceGroupName" -Width 20 -BackgroundColor $bgc -BorderAround Thin
+    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,3].Address -Value "Location" -Width 20 -BackgroundColor $bgc -BorderAround Thin
+    Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,4].Address -Value "Detail" -Width 20 -BackgroundColor $bgc -BorderAround Thin
+    $row ++
+
+    for($i=0;$i -lt $rgs.Count; $i++){
+        $rg = $rgs[$i]
+        Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,1].Address -Value ($row -4) -BorderAround Thin
+        Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,2].Address -Value $rg.ResourceGroupName -BorderAround Thin
+        Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,3].Address -Value $rg.Location -BorderAround Thin
+
+        $formular = '=HYPERLINK("#ResourceGroups!rg_' + ($($rg.ResourceGroupName) -replace "-","_") + '","Link")'
+        Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,4].Address -Formula $formular -BorderAround Thin
+        $row++
+    }
+
+    $row += 1
+
+    # create the summary of VirtualMachine
+    Set-ExcelRange -Worksheet $summaryWs -Range "A${row}" -Value "VirtualMachines" -FontSize 12 -Bold
+    $row ++
     Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,1].Address -Value "`#" -Width 5 -BackgroundColor $bgc -BorderAround Thin
     Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,2].Address -Value "Name" -Width 40 -BackgroundColor $bgc -BorderAround Thin
     Set-ExcelRange -Worksheet $summaryWs -Range $summaryWs.Cells[$row,3].Address -Value "ResourceGroupName" -Width 20 -BackgroundColor $bgc -BorderAround Thin
@@ -299,6 +322,45 @@ function New-Summary {
     }
 }
 
+
+function New-ResourceGroupDetail() {
+
+    #-------------------------------------------------------------------------------------------
+    # Create Disk
+    #-------------------------------------------------------------------------------------------
+
+    if ( $rgs -ne $Null ){
+        $rgWs = Add-Worksheet -ExcelPackage $excelPackage -WorksheetName "ResourceGroups"
+        $shortCols = @("A","B","C","D","E")
+        foreach ($shortCol in $shortCols) {
+            Set-ExcelRange -Worksheet $rgWs -Range "${shortCol}:${shortCol}" -Width (20/7).ToString()
+        }
+        Set-ExcelRange -Worksheet $rgWs -Range "F:F" -Width (20).ToString()
+        Set-ExcelRange -Worksheet $rgWs -Range "G:G" -Width (100).ToString()
+        
+    }
+
+    $rgHeight = 4
+    $workingRow = 1
+    for($i = 0; $i -lt $rgs.Count; $i++){
+        $rg = $rgs[$i]
+
+        Write-Output "Exporting $($rg.ResourceGroupName)"
+
+        $templatePackage.Workbook.Worksheets["ResourceGroup"].Cells["A1:G${rgHeight}"].Copy($rgWs.Cells["A${workingRow}:G$($workingRow + $rgHeight)"])
+
+        Set-ExcelRange -Worksheet $rgWs -Range "A$($workingRow)" -Value $rg.ResourceGroupName -Bold; $workingRow++
+        Add-ExcelName -Range $rgWs.Cells["A$($workingRow)"] -RangeName "rg_$($rg.ResourceGroupName)" -WarningAction SilentlyContinue
+        Set-ExcelRange -Worksheet $rgWs -Range "G$($workingRow)" -Value $rg.ResourceGroupName; $workingRow++
+        Set-ExcelRange -Worksheet $rgWs -Range "G${workingRow}" -Value $rg.Location; $workingRow++
+        Set-ExcelRange -Worksheet $rgWs -Range "G${workingRow}" -Value $rg.ManagedBy; $workingRow++
+
+        $workingRow++
+    }
+    $rgWs.Cells["G1:G${workingRow}"].Style.ShrinkToFit = "TRUE"
+}
+
+
 function New-VmDetails() {
 
     #-------------------------------------------------------------------------------------------
@@ -493,7 +555,7 @@ function New-DiskDetails() {
     # Create Disk
     #-------------------------------------------------------------------------------------------
 
-    if ( $vnets -ne $Null ){
+    if ( $disks -ne $Null ){
         $diskWs = Add-Worksheet -ExcelPackage $excelPackage -WorksheetName "Disks"
         $shortCols = @("A","B","C","D","E")
         foreach ($shortCol in $shortCols) {
@@ -880,6 +942,7 @@ function New-RecoveryServiceVaultDetails {
 }
 
 New-Summary
+New-ResourceGroupDetail
 New-VmDetails
 New-VnetDetails
 New-DiskDetails
