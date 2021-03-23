@@ -315,8 +315,8 @@ function New-VmDetails() {
         
     }
 
-    $vmWinHeight = 61
-    $vmLinuxHeight = 62
+    $vmWinHeight = 65
+    $vmLinuxHeight = 66
     $workingRow = 1 # エクスポート中のリソースのスタート行
     for($i = 0; $i -lt $vms.Count; $i++){
         $vm = $vms[$i]
@@ -404,7 +404,11 @@ function New-VmDetails() {
             Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value  $vm.StorageProfile.DataDisks[$j].ToBeDetached; $workingRow++
             Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value  $vm.StorageProfile.DataDisks[$j].DetachOption; $workingRow++
         }
-        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.Identity; $workingRow++
+        $workingRow++
+        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.Identity.PrincipalId; $workingRow++
+        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.Identity.TenantId; $workingRow++
+        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.Identity.Type; $workingRow++
+        Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.Identity.UserAssignedIdentities; $workingRow++
         Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.Zones; $workingRow++
         Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.ProximityPlacementGroup; $workingRow++
         Set-ExcelRange -Worksheet $ws -Range "G${workingRow}" -Value $vm.HostGroup; $workingRow++
