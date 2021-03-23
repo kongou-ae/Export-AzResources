@@ -519,8 +519,8 @@ function New-DiskDetails() {
         Set-ExcelRange -Worksheet $diskWs -Range "G${workingRow}" -Value $disk.sku.Tier; $workingRow++
         Set-ExcelRange -Worksheet $diskWs -Range "G${workingRow}" -Value $disk.Zone; $workingRow+=2
         Set-ExcelRange -Worksheet $diskWs -Range "G${workingRow}" -Value $disk.CreationData.CreateOption; $workingRow++
-        Set-ExcelRange -Worksheet $diskWs -Range "G${workingRow}" -Value $disk.CreationData.StorageAccountId; $workingRow++
-        Set-ExcelRange -Worksheet $diskWs -Range "G${workingRow}" -Value $disk.CreationData.ImageReference; $workingRow++
+        Set-ExcelRange -Worksheet $diskWs -Range "G${workingRow}" -Value $disk.CreationData.StorageAccountId; $workingRow+=2
+        Set-ExcelRange -Worksheet $diskWs -Range "G${workingRow}" -Value $disk.CreationData.ImageReference.Id; $workingRow++
         Set-ExcelRange -Worksheet $diskWs -Range "G${workingRow}" -Value $disk.CreationData.GalleryImageReference; $workingRow++
         Set-ExcelRange -Worksheet $diskWs -Range "G${workingRow}" -Value $disk.DiskSizeGB; $workingRow++
         Set-ExcelRange -Worksheet $diskWs -Range "G${workingRow}" -Value $disk.DiskState; $workingRow+=2
