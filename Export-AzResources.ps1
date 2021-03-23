@@ -553,7 +553,7 @@ function New-NicDetails() {
         Set-ExcelRange -Worksheet $nicWs -Range "G:G" -Width (100).ToString()
     }
 
-    $nicHeight = 28
+    $nicHeight = 29
     $workingRow = 1
     for($i = 0; $i -lt $nics.Count; $i++){
         $nic = $nics[$i]
@@ -566,8 +566,8 @@ function New-NicDetails() {
         Add-ExcelName -Range $nicWs.Cells["A$($workingRow)"] -RangeName "nic_$($nic.Name)" -WarningAction SilentlyContinue
         Set-ExcelRange -Worksheet $nicWs -Range "G${workingRow}" -Value $nic.ResourceGroupName; $workingRow++
         Set-ExcelRange -Worksheet $nicWs -Range "G${workingRow}" -Value $nic.Name; $workingRow++
-        Set-ExcelRange -Worksheet $nicWs -Range "G${workingRow}" -Value $nic.Location; $workingRow++
-        Set-ExcelRange -Worksheet $nicWs -Range "G${workingRow}" -Value $nic.VirtualMachine; $workingRow+=3
+        Set-ExcelRange -Worksheet $nicWs -Range "G${workingRow}" -Value $nic.Location; $workingRow+=2
+        Set-ExcelRange -Worksheet $nicWs -Range "G${workingRow}" -Value $nic.VirtualMachine.Id; $workingRow+=3
         # ToDo: Support multiple ip configuration
         Set-ExcelRange -Worksheet $nicWs -Range "G${workingRow}" -Value $nic.IpConfigurations[0].Name; $workingRow++
         Set-ExcelRange -Worksheet $nicWs -Range "G${workingRow}" -Value $nic.IpConfigurations[0].PrivateIpAddress; $workingRow++

@@ -30,6 +30,9 @@ Install-Module Az -scope CurrentUser
 - Network Security Group
 - Public Ip Address
 - Storage Account
+- Recovery Service Vault
+
+Notes: Every resorces may contain un-supported properties.
 
 ## Lisence
 
