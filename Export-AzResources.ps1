@@ -533,8 +533,17 @@ function New-VnetDetails() {
             Set-ExcelRange -Worksheet $vnetWs -Range "G${workingRow}" -Value  $vnet.Subnets[$j].NetworkSecurityGroup.Id; $workingRow+=2
             Set-ExcelRange -Worksheet $vnetWs -Range "G${workingRow}" -Value  $vnet.Subnets[$j].RouteTable.DisableBgpRoutePropagation; $workingRow++
             Set-ExcelRange -Worksheet $vnetWs -Range "G${workingRow}" -Value  $vnet.Subnets[$j].RouteTable.Id; $workingRow+=2
-            Set-ExcelRange -Worksheet $vnetWs -Range "G${workingRow}" -Value  $vnet.Subnets[$j].NatGateway.Id; $workingRow++
-            Set-ExcelRange -Worksheet $vnetWs -Range "G${workingRow}" -Value  $vnet.Subnets[$j].ServiceEndpoints; $workingRow++
+            Set-ExcelRange -Worksheet $vnetWs -Range "G${workingRow}" -Value  $vnet.Subnets[$j].NatGateway.Id; $workingRow+=2
+
+            $vnet.Subnets[$j].ServiceEndpoints | ForEach-Object {
+                $serviceEndpoint = $_
+                $vnetWs.InsertRow($workingRow,3) 
+                $templatePackage.Workbook.Worksheets["SubnetAddon"].Cells["A2:G4"].Copy($vnetWs.Cells["A${workingRow}:G$($workingRow + 2 -1)"])
+                $workingRow++
+                Set-ExcelRange -Worksheet $vnetWs -Range "G${workingRow}" -Value  $serviceEndpoint.Service; $workingRow++
+                Set-ExcelRange -Worksheet $vnetWs -Range "G${workingRow}" -Value  $serviceEndpoint.Locations; $workingRow++
+            }
+
             Set-ExcelRange -Worksheet $vnetWs -Range "G${workingRow}" -Value  $vnet.Subnets[$j].ServiceEndpointPolicies; $workingRow++
             Set-ExcelRange -Worksheet $vnetWs -Range "G${workingRow}" -Value  $vnet.Subnets[$j].PrivateLinkServiceNetworkPolicies; $workingRow++
             Set-ExcelRange -Worksheet $vnetWs -Range "G${workingRow}" -Value  $vnet.Subnets[$j].Delegations; $workingRow++
