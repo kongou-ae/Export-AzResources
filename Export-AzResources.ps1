@@ -541,7 +541,7 @@ function New-VnetDetails() {
                 $templatePackage.Workbook.Worksheets["SubnetAddon"].Cells["A2:G4"].Copy($vnetWs.Cells["A${workingRow}:G$($workingRow + 2 -1)"])
                 $workingRow++
                 Set-ExcelRange -Worksheet $vnetWs -Range "G${workingRow}" -Value  $serviceEndpoint.Service; $workingRow++
-                Set-ExcelRange -Worksheet $vnetWs -Range "G${workingRow}" -Value  $serviceEndpoint.Locations; $workingRow++
+                Set-ExcelRange -Worksheet $vnetWs -Range "G${workingRow}" -Value  ($serviceEndpoint.Locations -join ","); $workingRow++
             }
 
             Set-ExcelRange -Worksheet $vnetWs -Range "G${workingRow}" -Value  $vnet.Subnets[$j].ServiceEndpointPolicies; $workingRow++
