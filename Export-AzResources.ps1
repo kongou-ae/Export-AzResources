@@ -546,8 +546,17 @@ function New-VnetDetails() {
 
             Set-ExcelRange -Worksheet $vnetWs -Range "G${workingRow}" -Value  $vnet.Subnets[$j].ServiceEndpointPolicies; $workingRow++
             Set-ExcelRange -Worksheet $vnetWs -Range "G${workingRow}" -Value  $vnet.Subnets[$j].PrivateLinkServiceNetworkPolicies; $workingRow++
-            Set-ExcelRange -Worksheet $vnetWs -Range "G${workingRow}" -Value  $vnet.Subnets[$j].Delegations; $workingRow++
 
+            if ($vnet.Subnets[$j].Delegations -ne $Null){
+                $workingRow++
+                $vnetWs.InsertRow($workingRow,3) 
+                $templatePackage.Workbook.Worksheets["SubnetAddon"].Cells["A7:G9"].Copy($vnetWs.Cells["A${workingRow}:G$($workingRow + 2 -1)"])
+                Set-ExcelRange -Worksheet $vnetWs -Range "G${workingRow}" -Value  $vnet.Subnets[$j].Delegations.Name; $workingRow++
+                Set-ExcelRange -Worksheet $vnetWs -Range "G${workingRow}" -Value  $vnet.Subnets[$j].Delegations.ServiceName; $workingRow++
+                Set-ExcelRange -Worksheet $vnetWs -Range "G${workingRow}" -Value  ($vnet.Subnets[$j].Delegations.Actions -join ","); $workingRow++
+            } else{
+                $workingRow++
+            }
         }
         Set-ExcelRange -Worksheet $vnetWs -Range "G${workingRow}" -Value $vnet.VirtualNetworkPeerings; $workingRow+=1
         Set-ExcelRange -Worksheet $vnetWs -Range "G${workingRow}" -Value $vnet.EnableDdosProtection; $workingRow+=1
